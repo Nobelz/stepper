@@ -19,15 +19,15 @@ function stepper_com(command, argument,port)
         case 'set_sequence_rate'
             send_serial(['P' uint8(argument)]);
         case 'send_sequence'
-            argument(argument==-1)=2;             
+%             argument(argument==-1)=2;             
             len = length(argument)/4;
             sequence = uint8(len);
             outbyte = uint8(0);
             ctr = 1;
             for i = 1:length(argument)
-                if argument(i)==1
+                if argument(i) > 0
                     outbyte=bitset(outbyte,ctr,1);
-                elseif argument(i)==2
+                elseif argument(i) < 0
                     outbyte=bitset(outbyte,ctr+1,1);
                 end
                 ctr = ctr+2;
