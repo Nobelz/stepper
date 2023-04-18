@@ -1,7 +1,7 @@
-function expArenaOnlyMSeq(flyNum, flyTrial, double, sequence)
-% expArenaOnlyMSeq.m
-% Rewrite for experiment for visual only trials with m-sequence.
-% Uses (or generates) m-sequence to use for arena stripes.
+function expStepperOnlyStripesMSeq(flyNum, flyTrial, double, sequence)
+% expStepperOnlyStripesMSeq.m
+% Rewrite for experiment for stepper only trials with m-sequence, with
+% visual background.
 %
 % Inputs:
 %   - flyNum: the number of the fly to be analyzed
@@ -11,7 +11,7 @@ function expArenaOnlyMSeq(flyNum, flyTrial, double, sequence)
 %       generated
 %
 % Author: Nobel Zhou
-% Date: 17 April 2023
+% Date: 18 April 2023
 % Version: 0.1
 
 if nargin < 2
@@ -32,20 +32,21 @@ end
 STEP_RATE = 50;
 DURATION = 16;
 PATTERN = 2;
-
+              
 %% Set Arena Configuration
 opts = struct;
 opts.treatment = 'PCF';
-opts.step_seq = [];
-opts.step_rate = STEP_RATE; 
+opts.step_seq = sequence;
+opts.step_rate = STEP_RATE;
 opts.vis_pat = PATTERN;
-opts.vis_funcx = sequence;
-opts.vis_funcy = sequence;
+opts.vis_funcx = [];
+opts.vis_funcy = [];
 opts.exp_dur = DURATION;
 
-exp = stepper_rig_control(opts); 
+% Run Experiment
+exp=stepper_rig_control(opts);
 
-% Check if data should be saved
+% Save Data
 btn = questdlg('Save This Trial?','Save Trial', 'Yes', 'No', 'No');
 
 if strcmp(btn, 'Yes')
@@ -56,9 +57,8 @@ if strcmp(btn, 'Yes')
     else
         filename = [exp.treatment num2str(flyNum) 'con_' mfilename datestr(exp.exptime,'_yyyymmdd_HHMMSS')];
     end
-    filename = fullfile(foldname,filename);
+    filename = fullfile(foldname, filename);
     disp(['Saving to ' filename]);
     save(filename,'exp');
 end
 end
-
