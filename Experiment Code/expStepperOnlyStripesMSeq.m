@@ -34,7 +34,7 @@ DURATION = 16;
 PATTERN = 2;
               
 %% Set Arena Configuration
-opts = struct;
+opts = struct;  % TODO: ADD GAIN CONTROL
 opts.treatment = 'PCF';
 opts.step_seq = sequence;
 opts.step_rate = STEP_RATE;

@@ -18,6 +18,8 @@ function stepper_com(command, argument,port)
             send_serial(['r' uint8(argument)]);
         case 'set_sequence_rate'
             send_serial(['P' uint8(argument)]);
+        case 'set_sequence_gain'
+            send_serial(['G' uint8(argument)]);
         case 'send_sequence'
 %             argument(argument==-1)=2;             
             len = length(argument)/4;
@@ -37,7 +39,7 @@ function stepper_com(command, argument,port)
                     ctr=1;
                 end
             end
-            sequence = ['C' sequence];
+            sequence = ['C' sequence]; % Maybe double here?
             for i = 1:50:length(sequence)
                 iend = i+49;
                 iend = min([iend length(sequence)]);
