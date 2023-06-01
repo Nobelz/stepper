@@ -113,12 +113,12 @@ switch lower(command)
         send_serial( char([2 5 argument(1)]));
   
   case 'set_trigger_rate'
-      if (~isequal(length(argument),1)||(~isnumeric(argument))||(argument(1) > 255)||(argument(1) < 0))
+        if (~isequal(length(argument),1)||(~isnumeric(argument))||(argument(1) > 255)||(argument(1) < 0))
             error('trigger setting requires 1 argument that is a number between 0 and 255');
         end
         %	set the trigger rate on the controller; send 0x06 and value
         %	0-255 (multiplied by 2 on the controller).
-        send_serial( char([2 6 argument(1)]));
+        send_serial(char([2 6 argument(1)]));
         
 % three byte commands:
   

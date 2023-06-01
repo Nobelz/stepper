@@ -3,8 +3,8 @@ function seq = generateMSeq()
 % Rewrite for experiment, generates 3 iterations of 7th order random 
 % m-sequence, padded to 1000 in length, interleaved with zeros.
 %
-% Author: Nobel Zhou
-% Date: 17 April 2023
+% Author: Nobel Zhou, Jessica Fox, and Mike Rauscher
+% Date: 1 June 2023
 % Version: 0.1
 %
 % VERSION CHANGELOG:

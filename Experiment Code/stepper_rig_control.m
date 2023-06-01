@@ -8,7 +8,9 @@ end
 if isempty(opts.treatment)
     opts.treatment = 'PCF';
 end 
-
+if isempty(opts.gain)
+    opts.gain = 1;
+end
 if isempty(opts.vis_funcx)
     opts.vis_funcx = ones(1,1000);
 end
@@ -80,7 +82,7 @@ ch.TerminalConfig = 'SingleEnded';
 % if voltage on this channel is stuck high turn it on and off again to
 % reset it to 0v
 if inputSingleScan(s)> 2
-    Panel_com('set_trigger_rate',1)%make rate slow enough for us to catch
+    Panel_com('set_trigger_rate', 1) % make rate slow enough for us to catch
     Panel_com('start_w_trig');
     loopctrl = true;
     loopt = tic;
@@ -125,13 +127,16 @@ if ~isempty(opts.step_seq) % don't send if there isn't one.
     %send rate and sequence
     stepper_com('set_sequence_rate',opts.step_rate);
     stepper_com('send_sequence',opts.step_seq);
+    % Send gain
+    stepper_com('set_sequence_gain', opts.gain);
     
     Panel_com('set_trigger_rate',opts.step_rate);
     
     fprintf('    ...done\n');
 else
     fprintf(' no stepper for this experiment\n');
-    Panel_com('set_trigger_rate',51);    
+    % Panel_com('set_trigger_rate',51);    
+    % Panel_com('set_trigger_rate', opts.step_rate)
 end
 %% run and get data
 disp('Waiting for user start signal...')

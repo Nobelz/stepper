@@ -1,4 +1,4 @@
-function expStepperOnlyStripesMSeq(flyNum, flyTrial, double, sequence)
+function expStepperOnlyStripesMSeq(flyNum, flyTrial, double, delay, sequence)
 % expStepperOnlyStripesMSeq.m
 % Rewrite for experiment for stepper only trials with m-sequence, with
 % visual background.
@@ -7,6 +7,8 @@ function expStepperOnlyStripesMSeq(flyNum, flyTrial, double, sequence)
 %   - flyNum: the number of the fly to be analyzed
 %   - flyTrial: the trial of the fly
 %   - double: whether the m-sequence should be doubled (default is no)
+%   - delay: whether the m-sequence should be delayed by 200 iterations
+%       (default is no)
 %   - sequence: the m-sequence. If not given, a random m-sequence will be
 %       generated
 %
@@ -16,16 +18,24 @@ function expStepperOnlyStripesMSeq(flyNum, flyTrial, double, sequence)
 
 if nargin < 2
     error('Fly number and trial required as inputs.');
-elseif nargin > 3 && length(sequence) ~= 1000 % Check if sequence length is appropriate
+elseif nargin > 4 && length(sequence) ~= 1000 % Check if sequence length is appropriate
     error('M-sequence length incorrect.');
-elseif nargin < 4 % Check if sequence was provided
+elseif nargin < 5 % Check if sequence was provided
     warning('M-sequence not provided. Generating m-sequence...');
     sequence = generateMSeq(); % Generate new m-sequence
 end
 
 % Check if m-sequence should be doubled
 if nargin > 2 && double == 1
-    sequence = 2 * sequence; % Double m-sequence
+    GAIN = 5;
+else
+    GAIN = 1;
+end
+
+% Check if m-sequence should be delayed by 200 iterations
+if nargin > 3 && delay == 1
+    sequence = [zeros(1, 200) sequence]; % Add 200 zeros to beginning
+    sequence = sequence(1 : 1000); % Cut off last 200
 end
 
 % Define Constants
@@ -34,11 +44,12 @@ DURATION = 16;
 PATTERN = 2;
               
 %% Set Arena Configuration
-opts = struct;  % TODO: ADD GAIN CONTROL
+opts = struct; 
 opts.treatment = 'PCF';
 opts.step_seq = sequence;
 opts.step_rate = STEP_RATE;
 opts.vis_pat = PATTERN;
+opts.gain = GAIN;
 opts.vis_funcx = [];
 opts.vis_funcy = [];
 opts.exp_dur = DURATION;
