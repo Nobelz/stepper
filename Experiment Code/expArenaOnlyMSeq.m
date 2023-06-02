@@ -20,12 +20,12 @@ function expArenaOnlyMSeq(flyNum, flyTrial, sequence, double, delayed)
 % - v0.1 (4/17/2023): Initial commit
 % - v0.2 (6/1/2023): Added delayed functionality
 
-if nargin < 2
+if nargin < 2 % Check if fly number and trial are provided
     error('Fly number and trial required as inputs.');
 elseif nargin < 3 || length(sequence) ~= 1000 % Check if sequence length is appropriate
     warning('M-sequence length incorrect or not provided. Generating m-sequence...');
-    sequence = generateMSeq(delayed);
-elseif nargin < 5
+    sequence = generateMSeq();
+elseif nargin < 5 % Check and assign optional arguments
     delayed = 0;
     if nargin < 4
         double = 0;
@@ -51,7 +51,7 @@ end
 
 % Define Constants
 STEP_RATE = 1;
-DURATION = 16;
+DURATION = 20;
 PATTERN = 2;
 
 %% Set Arena Configuration

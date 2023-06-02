@@ -1,4 +1,4 @@
-function expStepperOnlyStripesMSeq(flyNum, flyTrial, double, delay, sequence)
+function expStepperOnlyStripesMSeq(flyNum, flyTrial, sequence, double, delayed)
 % expStepperOnlyStripesMSeq.m
 % Rewrite for experiment for stepper only trials with m-sequence, with
 % visual background.
@@ -6,41 +6,56 @@ function expStepperOnlyStripesMSeq(flyNum, flyTrial, double, delay, sequence)
 % Inputs:
 %   - flyNum: the number of the fly to be analyzed
 %   - flyTrial: the trial of the fly
-%   - double: whether the m-sequence should be doubled (default is no)
-%   - delay: whether the m-sequence should be delayed by 200 iterations
-%       (default is no)
 %   - sequence: the m-sequence. If not given, a random m-sequence will be
 %       generated
+%   - double: whether the m-sequence should be doubled (default is no (0))
+%   - delayed: whether the m-sequence should be delayed by 200 iterations
+%       (default is no (0))
 %
 % Author: Nobel Zhou
-% Date: 18 April 2023
-% Version: 0.1
+% Date: 1 June 2023
+% Version: 0.2
+%
+% VERSION CHANGELOG:
+% - v0.1 (4/17/2023): Initial commit
+% - v0.2 (6/1/2023): Added doubling and delayed functionality
 
-if nargin < 2
+if nargin < 2 % Check if fly number and trial are provided
     error('Fly number and trial required as inputs.');
-elseif nargin > 4 && length(sequence) ~= 1000 % Check if sequence length is appropriate
-    error('M-sequence length incorrect.');
-elseif nargin < 5 % Check if sequence was provided
-    warning('M-sequence not provided. Generating m-sequence...');
-    sequence = generateMSeq(); % Generate new m-sequence
+elseif nargin < 3 || length(sequence) ~= 1000 % Check if sequence length is appropriate
+    warning('M-sequence length incorrect or not provided. Generating m-sequence...');
+    sequence = generateMSeq();
+elseif nargin < 5 % Check and assign optional arguments
+    delayed = 0;
+    if nargin < 4
+        double = 0;
+    end
 end
 
 % Check if m-sequence should be doubled
-if nargin > 2 && double == 1
-    GAIN = 5;
+if double == 1
+    GAIN = 2;
 else
     GAIN = 1;
 end
 
-% Check if m-sequence should be delayed by 200 iterations
-if nargin > 3 && delay == 1
-    sequence = [zeros(1, 200) sequence]; % Add 200 zeros to beginning
-    sequence = sequence(1 : 1000); % Cut off last 200
+% Check if m-sequence should be delayed
+if delayed == 1
+    sequence = [zeros(1, 200) sequence];
+
+    % It's ok to chip off the last 200 iterations of the m-sequence 
+    % as the m-sequence should only go to 1 to 3x127x2 (762), so with 200
+    % delay, it should be 962 max - nxz157
+    sequence = sequence(1 : 1000); 
 end
 
+% Slow down to 1Hz for testing purposes
+sequence = repelem(sequence, 50); 
+sequence = sequence(1 : 1000);
+
 % Define Constants
-STEP_RATE = 50;
-DURATION = 16;
+STEP_RATE = 51;
+DURATION = 20;
 PATTERN = 2;
               
 %% Set Arena Configuration

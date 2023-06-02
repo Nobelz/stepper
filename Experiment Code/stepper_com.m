@@ -2,7 +2,7 @@
 function stepper_com(command, argument, port)
     
     %use default com port if none specified [change to match computer]
-    DEFAULT_COM = 'COM9';
+    DEFAULT_COM = 'COM3';
     if nargin<3
         port = DEFAULT_COM;
     end
