@@ -47,8 +47,6 @@ if delayed == 1
     sequence = sequence(1 : 1000); 
 end
 
-% sequence = repelem(sequence, 50); % Slow down to 1Hz for testing purposes
-
 % Define Constants
 STEP_RATE = 1;
 DURATION = 20;
