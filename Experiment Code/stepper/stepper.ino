@@ -58,9 +58,9 @@ void loop() {
     }
     else if (command == 'G') { //set gain
       while (Serial.available() == 0) {};//wait for byte
-      gain = Serial.read();//store gain value when available
+      gain = (int)Serial.read();//store gain value when available
       Serial.print(command);//print feedback
-      Serial.println(spd);
+      Serial.println(gain);
     }
     else if (command == 'P') { //set update rate in Hz for sequence mode
       while (Serial.available() == 0) {}; //wait for value in next byte
@@ -70,7 +70,7 @@ void loop() {
     else if (command == 'C') { //begin sequence mode
       while (Serial.available() < 2) {}; //wait for two bytes to be available
       len = Serial.read(); //get length of commanded sequence in bytes
-      execcmd(len, rate); //execute sequence mode with desired rate
+      execcmd(len, rate, gain); //execute sequence mode with desired rate
     }
     else if (command == 'T') { //set trigger behavior for sequence playback mode
       while (Serial.available() == 0) {}; //wait for byte
@@ -83,7 +83,7 @@ void loop() {
 }
 
 //sequence playback function
-void execcmd(int len, int rate) {
+void execcmd(int len, int rate, int gain) {
   stepper.setSpeed(255); //temporarily set speed to maximum
   byte buff[len]; //define a byte buffer for the incomming sequence
   //pull bytes from the serial buffer into the command buffer as they become available

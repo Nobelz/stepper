@@ -39,7 +39,7 @@ function stepper_com(command, argument, port)
                     ctr=1;
                 end
             end
-            sequence = ['C' sequence]; % Maybe double here?
+            sequence = ['C' sequence]; 
             for i = 1:50:length(sequence)
                 iend = i+49;
                 iend = min([iend length(sequence)]);

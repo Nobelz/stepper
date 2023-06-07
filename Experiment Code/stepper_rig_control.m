@@ -126,9 +126,10 @@ if ~isempty(opts.step_seq) % don't send if there isn't one.
     stepper_com('set_trig_mode','start_on_trig');
     %send rate and sequence
     stepper_com('set_sequence_rate',opts.step_rate);
+    stepper_com('set_sequence_gain', opts.gain);
     stepper_com('send_sequence',opts.step_seq);
     % Send gain
-    stepper_com('set_sequence_gain', opts.gain);
+    
     
     Panel_com('set_trigger_rate',opts.step_rate);
     
