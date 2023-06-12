@@ -16,8 +16,13 @@ void setup() {
   //turn on digital pins 7 and 12 to enable the h-bridge chip
   digitalWrite(7, true);
   digitalWrite(12, true);
+
+  // set digital pin 4 to output for stepper timing information
+  pinMode(4, OUTPUT); 
+
   //set speed to default
   stepper.setSpeed(spd);
+
   //start serial communication
   Serial.begin(9600);
 }
@@ -120,9 +125,17 @@ void execcmd(int len, int rate, int gain) {
         }
       }
       else { //if we're in mode 0 wait til its time for the next step and then go
-        while (millis() < prevtime + per) {} //wait til current time is greater than last pulse + interpulse period
+        while (millis() < prevtime + per) {
+          if (millis() > (prevtime + per / 2)) {
+            // Write digital pin down halfway through iteration
+            digitalWrite(4, LOW);
+          }
+        } //wait til current time is greater than last pulse + interpulse period
         prevtime = millis(); //assign last pulse time to now
       }
+      
+      // Write digital pin up
+      digitalWrite(4, HIGH);
       
       if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {//step right by 1 step if our command bits are 01 (1 in decimal)
         stepper.step(1*gain);

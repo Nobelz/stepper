@@ -99,16 +99,20 @@ if inputSingleScan(s)> 2
     Panel_com('stop_w_trig');
 end
 
-%add fastec camera frame sync channel
+% Add fastec camera frame sync channel
 ch = addAnalogInputChannel(s,'dev1','ai2','Voltage');
 ch.TerminalConfig = 'SingleEnded';
 
-%add arena x channel
+% Add arena x channel
 ch = addAnalogInputChannel(s,'dev1','ai3','Voltage');
 ch.TerminalConfig = 'SingleEnded';
 
-%add arena y channel
+% Add arena y channel
 ch = addAnalogInputChannel(s,'dev1','ai4','Voltage');
+ch.TerminalConfig = 'SingleEnded';
+
+% Add stepper channel
+ch = addAnalogInputChannel(s,'dev1','ai6','Voltage');
 ch.TerminalConfig = 'SingleEnded';
 
 %trigger with arena controller
@@ -159,7 +163,7 @@ if nargout>0
     exp = opts;
     exp.daq.data = data;
     exp.daq.fs = s.Rate;
-    exp.daq.channelnames = {'Arena Sync','Camera Sync','Arena_X','Arena_Y'};
+    exp.daq.channelnames = {'Arena Sync','Camera Sync','Arena_X','Arena_Y','Stepper'};
 end
 
     function getdata(~,e)
