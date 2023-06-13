@@ -50,7 +50,7 @@ if delayed == 1
 end
 
 % Define Constants
-STEP_RATE = 51;
+STEP_RATE = 50;
 DURATION = 20;
 PATTERN = 2;
               

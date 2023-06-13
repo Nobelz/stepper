@@ -145,8 +145,10 @@ else
 end
 %% run and get data
 disp('Waiting for user start signal...')
-uiwait(msgbox({'Please arm camera and click ok to continue',...
-['(Required buffer length ' num2str(opts.exp_dur) ' seconds)']}));
+if strcmp(opts.collect_data, 'Y')
+    uiwait(msgbox({'Please arm camera and click ok to continue',...
+    ['(Required buffer length ' num2str(opts.exp_dur) ' seconds)']}));
+end
 fprintf(' beginning trial\n');
 opts.exptime = now;
 data = [];
