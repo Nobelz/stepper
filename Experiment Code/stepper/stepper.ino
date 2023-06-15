@@ -30,7 +30,7 @@ void setup() {
 void loop() {
   //listen for new serial commands
   if (Serial.available() > 0) {
-    //store incoming byes in command
+    //store incoming bytes in command
     char command = Serial.read();
     if (command == 'r') { //step right
       while (Serial.available() == 0) {};//wait for next byte which says how many steps

@@ -58,9 +58,13 @@ function stepper_com(command, argument, port)
                     error('Invalid trigger mode. Valid options: off step_on_trig start_on_trig')
             end
         case 'reset'
-            s = serial(port,'DataTerminalReady','on');%Assert DTR to reset arduino
-            fopen(s);
-            fclose(s);
+            % Assert DTR to reset arduino
+            s = serialport(port, 9600);
+            s.setDTR(true);
+            
+%             fopen(s);
+%             fclose(s);
+%             delete(s);
             delete(s);
             pause(2);%block for the arduino to reboot
         otherwise
@@ -68,10 +72,16 @@ function stepper_com(command, argument, port)
     end
     
     function send_serial(cmd)
-        s = serial(port,'DataTerminalReady','off','OutputBufferSize',1024,'Terminator','');%DTR is hard-wired to arduino reset so keep it off
-        fopen(s);
-        fwrite(s,cmd);
-        fclose(s);
-        delete(s);
+%         ss = serialport(port, 9600);
+%         ss.setDTR(false);
+%         ss.OutputBufferSize = 1024;
+%         ss.configureTerminator(0);
+%         write(ss, cmd, 'uint8');
+%         delete(ss);
+        ss = serial(port,'DataTerminalReady','off','OutputBufferSize',1024);%DTR is hard-wired to arduino reset so keep it off
+        fopen(ss);
+        fwrite(ss,cmd, 'uint8');
+        fclose(ss);
+        delete(ss);
     end
 end
