@@ -1,11 +1,15 @@
 %%stepper motor serial control function
-function stepper_com(command, argument, port)
+function stepper_com(command, argument, s)
     
     %use default com port if none specified [change to match computer]
-    DEFAULT_COM = 'COM3';
-    if nargin<3
-        port = DEFAULT_COM;
-    end
+%     DEFAULT_COM = 'COM3';
+%     if nargin<3
+%         port = DEFAULT_COM;
+%     end
+% 
+%     s = serialport(port, 9600);
+%     setDTR(s, false);
+%     s.OutputBufferSize = 1024;
     
     %set command to lowercase to make input case-insensitive
     switch(lower(command))
@@ -57,15 +61,17 @@ function stepper_com(command, argument, port)
                 otherwise
                     error('Invalid trigger mode. Valid options: off step_on_trig start_on_trig')
             end
+        case 'voltage'
+            send_serial(['V' uint8(argument)]);
         case 'reset'
             % Assert DTR to reset arduino
-            s = serialport(port, 9600);
-            s.setDTR(true);
+%             s = serialport(port, 9600);
+            setDTR(s,true);
             
 %             fopen(s);
 %             fclose(s);
 %             delete(s);
-            delete(s);
+%             delete(s);
             pause(2);%block for the arduino to reboot
         otherwise
             error(['Not a recognized command: "' command '"']);
@@ -73,15 +79,18 @@ function stepper_com(command, argument, port)
     
     function send_serial(cmd)
 %         ss = serialport(port, 9600);
-%         ss.setDTR(false);
+%         setDTR(ss,false);
 %         ss.OutputBufferSize = 1024;
-%         ss.configureTerminator(0);
+% %         ss.configureTerminator(0);
 %         write(ss, cmd, 'uint8');
 %         delete(ss);
-        ss = serial(port,'DataTerminalReady','off','OutputBufferSize',1024);%DTR is hard-wired to arduino reset so keep it off
-        fopen(ss);
-        fwrite(ss,cmd, 'uint8');
-        fclose(ss);
-        delete(ss);
+        
+        write(s, cmd, 'uint8');
+%         warning off 'instrument:serial:ClassToBeRemoved'
+%         ss = serial(port,'DataTerminalReady','off','OutputBufferSize',1024,'Terminator','');%DTR is hard-wired to arduino reset so keep it off
+%         fopen(ss);
+%         fwrite(ss,cmd, 'uint8');
+%         fclose(ss);
+%         delete(ss);
     end
 end

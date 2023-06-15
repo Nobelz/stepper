@@ -4,7 +4,7 @@
 const int stepsPerRevolution = 96;
 int len = 1000;
 int rate = 20;
-int gain = 1;
+byte gain = 1;
 byte val = 0;
 byte spd = 240;
 byte trigmode = 0;
@@ -63,9 +63,10 @@ void loop() {
     }
     else if (command == 'G') { //set gain
       while (Serial.available() == 0) {};//wait for byte
-      gain = (int)Serial.read();//store gain value when available
+      gain = Serial.read();//store gain value when available
       Serial.print(command);//print feedback
       Serial.println(gain);
+      digitalWrite(13,true);
     }
     else if (command == 'P') { //set update rate in Hz for sequence mode
       while (Serial.available() == 0) {}; //wait for value in next byte
@@ -75,20 +76,25 @@ void loop() {
     else if (command == 'C') { //begin sequence mode
       while (Serial.available() < 2) {}; //wait for two bytes to be available
       len = Serial.read(); //get length of commanded sequence in bytes
-      execcmd(len, rate, gain); //execute sequence mode with desired rate
+      beginSequence(len, rate, gain); //execute sequence mode with desired rate
     }
     else if (command == 'T') { //set trigger behavior for sequence playback mode
       while (Serial.available() == 0) {}; //wait for byte
       trigmode = Serial.read(); //store trigger behavior setting. 
-      // available modes: 0 = play sequence immediately, 1 = step one element of sequence every time pin 2 goes high, 2 = play whole sequence after pin 2 goes high. 
+      // available modes: 0 = play sequence immediately, 1 = step one element of sequence every time pin 2 goes high, 2 = play whole sequence after pin 2 goes high.
       Serial.print(command); //print feedback
+    }
+    else if (command == 'V') {// begin voltage mode 
+      while (Serial.available() == 0) {};
+      int duration = (int) Serial.read(); // store duration (in seconds)
+      beginVoltage(duration, gain); // begin voltage mode with desired duration
     }
   }
 
 }
 
 //sequence playback function
-void execcmd(int len, int rate, int gain) {
+void beginSequence(int len, int rate, byte gain) {
   stepper.setSpeed(255); //temporarily set speed to maximum
   byte buff[len]; //define a byte buffer for the incomming sequence
   //pull bytes from the serial buffer into the command buffer as they become available
@@ -151,6 +157,36 @@ void execcmd(int len, int rate, int gain) {
   if (trigmode > 0) { //if we were using a triggered sequence mode detach the interrupt from digital pin 2
     detachInterrupt(digitalPinToInterrupt(2));
   }
+}
+
+void beginVoltage(int duration, byte gain) {
+  stepper.setSpeed(255); //temporarily set speed to maximum
+  unsigned long prevtime = millis();
+  unsigned int val = 0;
+  int8_t curState = 0;
+  int8_t lastState = 0;
+
+  // while (millis() < prevtime + duration * 1000) {
+  while(true) {
+    val = analogRead(A2);
+    if (val < 341) {  
+      curState = -1;
+    } else if (val < 682) {
+      curState = 0;
+    } else {
+      curState = 1;
+    }
+    
+    if (lastState == 0 && curState < 0) {
+      stepper.step(-1 * gain);
+    } else if (lastState == 0 && curState > 0) {
+      stepper.step(1 * gain);
+    }
+
+    lastState = curState;
+  }
+
+  stepper.setSpeed(spd); //set speed back to defined speed
 }
 
 //interrupt service routine for triggered recordings -- when attached, this is called whenever D2 goes high

@@ -12,12 +12,12 @@ function mapping = getMapping
 
 %% Get Arena Voltages
 % Load voltages if they exist already
-if isfile('voltages.mat')
-    load('voltages.mat', 'voltages');
-else
+% if isfile('voltages.mat')
+%     load('voltages.mat', 'voltages');
+% else
     voltages = getArenaVoltages();
     save('voltages', 'voltages');
-end
+% end
 
 %% Setup DAQ and Panel Controller
 % Setup Panel Controller
