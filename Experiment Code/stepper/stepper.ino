@@ -85,9 +85,7 @@ void loop() {
       Serial.print(command); //print feedback
     }
     else if (command == 'V') {// begin voltage mode 
-      while (Serial.available() == 0) {};
-      int duration = (int) Serial.read(); // store duration (in seconds)
-      beginVoltage(duration, gain); // begin voltage mode with desired duration
+      beginVoltage(gain); // begin voltage mode with desired duration
     }
   }
 
@@ -159,15 +157,14 @@ void beginSequence(int len, int rate, byte gain) {
   }
 }
 
-void beginVoltage(int duration, byte gain) {
+void beginVoltage(byte gain) {
   stepper.setSpeed(255); //temporarily set speed to maximum
   unsigned long prevtime = millis();
   unsigned int val = 0;
   int8_t curState = 0;
   int8_t lastState = 0;
 
-  // while (millis() < prevtime + duration * 1000) {
-  while(true) {
+  while (true) {
     val = analogRead(A2);
     if (val < 341) {  
       curState = -1;

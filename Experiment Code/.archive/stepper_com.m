@@ -1,20 +1,34 @@
-%%stepper motor serial control function
-function stepper_com(command, argument, s)
-    
-    %use default com port if none specified [change to match computer]
+function stepper_com(port, command, argument)
+% Stepper_com.m
+% Communicates with the stepper via a serial port.
+%
+% Inputs:
+%   - port: the serialport object of the stepper
+%   - command: the command
+%   - argument: the argument of the command, if there is one
+%
+% Author: Mike Rauscher and Nobel Zhou
+% Date: 16 June 2023
+% Version: 1.1
+%
+% VERSION CHANGELOG:
+% - v1.0 (??/??/????): Initial commit
+% - v2.2 (6/16/2023): Added comments, added voltage functionality
+
+    % Coder's note: the below code was used before switching to the new
+    % serialport. Now, only one serialport object is created at a time, so
+    % defining the port here is no longer useful. - nxz157, 6/16/2023
+
+%     % use default com port if none specified [change to match computer]
 %     DEFAULT_COM = 'COM3';
 %     if nargin<3
 %         port = DEFAULT_COM;
 %     end
-% 
-%     s = serialport(port, 9600);
-%     setDTR(s, false);
-%     s.OutputBufferSize = 1024;
-    
-    %set command to lowercase to make input case-insensitive
+        
+    % set command to lowercase to make input case-insensitive
     switch(lower(command))
         case 'set_speed'
-            argument = argument*6/36; %convert °/s to RPM
+            argument = argument*6/36; % convert °/s to RPM
             send_serial(['S' uint8(argument)]);
         case 'step_left'
             send_serial(['l' uint8(argument)]);
@@ -62,11 +76,12 @@ function stepper_com(command, argument, s)
                     error('Invalid trigger mode. Valid options: off step_on_trig start_on_trig')
             end
         case 'voltage'
-            send_serial(['V' uint8(argument)]);
+            send_serial('V');
         case 'reset'
             % Assert DTR to reset arduino
 %             s = serialport(port, 9600);
-            setDTR(s,true);
+            setDTR(port,false);
+            setDTR(port,true);
             
 %             fopen(s);
 %             fclose(s);
@@ -85,7 +100,7 @@ function stepper_com(command, argument, s)
 %         write(ss, cmd, 'uint8');
 %         delete(ss);
         
-        write(s, cmd, 'uint8');
+        write(port, cmd, 'uint8');
 %         warning off 'instrument:serial:ClassToBeRemoved'
 %         ss = serial(port,'DataTerminalReady','off','OutputBufferSize',1024,'Terminator','');%DTR is hard-wired to arduino reset so keep it off
 %         fopen(ss);
