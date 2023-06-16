@@ -176,8 +176,12 @@ void beginVoltage(byte gain) {
     
     if (lastState == 0 && curState < 0) {
       stepper.step(-1 * gain);
+      digitalWrite(4, HIGH);
     } else if (lastState == 0 && curState > 0) {
       stepper.step(1 * gain);
+      digitalWrite(4, HIGH);
+    } else if (lastState != 0 && curState == 0) {
+      digitalWrite(4, LOW);
     }
 
     lastState = curState;

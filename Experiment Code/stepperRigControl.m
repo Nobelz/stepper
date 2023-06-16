@@ -19,11 +19,12 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
 %   - setup: whether to rerun mappings
 %
 % Author: Nobel Zhou, nxz157
-% Date: 15 June 2023
-% Version: 0.1
+% Date: 16 June 2023
+% Version: 0.2
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/15/2023): Initial commit
+% - v0.2 (6/16/2023): Added stepper functionality
 
     clc
     close all
@@ -60,6 +61,7 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     %% Define Constants
     DAQ_RATE = 10000;
     STEPPER_PORT = 'COM3';
+    ARENA_DELAY = 0.004;
     
     %% Rerun Mappings (if necessary)
     if setup || ~isfile('mapping.mat')
@@ -75,54 +77,49 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     fprintf('Setting up DAQ...');
     daqreset; % Reset DAQ
     
-    % Setup output DAQ
-    out = daq('ni');
+    % Initialize DAQ
+    d = daq('ni');
     fprintf('.');
-    out.Rate = DAQ_RATE;
+    d.Rate = DAQ_RATE;
     fprintf('.');
     
     % Create DAQ input for arena
     daqExpData = zeros(DAQ_RATE * duration, 2);
     
     % Setup output channels
-    addoutput(out, 'dev1', 'ao0', 'Voltage'); % Output channel for LED Arena (X and Y)
+    addoutput(d, 'dev1', 'ao0', 'Voltage'); % Output channel for LED Arena (X and Y)
     fprintf('.');
      
-    addoutput(out, 'dev1', 'ao1', 'Voltage'); % Output channel for Stepper
+    addoutput(d, 'dev1', 'ao1', 'Voltage'); % Output channel for Stepper
     fprintf('.');
     
-    % % Add trigger connection from arena controller
-    % addtrigger(out, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
-    % fprintf('.');
-    % Setup Input DAQ
-    in = daq('ni');
-    fprintf('.');
-    in.Rate = DAQ_RATE;
-    fprintf('.');
-    
+%     % Add trigger connection from arena controller
+%     addtrigger(out, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
+%     fprintf('.');
+
     % Setup input channels
     % Add arena control trigger channel
-    ch = addinput(in, 'dev1', 'ai1', 'Voltage');
+    ch = addinput(d, 'dev1', 'ai1', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
     % Add fastec camera frame sync channel
-    ch = addinput(in, 'dev1', 'ai2', 'Voltage');
+    ch = addinput(d, 'dev1', 'ai2', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
     % Add arena x channel
-    ch = addinput(in, 'dev1', 'ai3', 'Voltage');
+    ch = addinput(d, 'dev1', 'ai3', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
     % Add arena y channel
-    ch = addinput(in, 'dev1', 'ai4', 'Voltage');
+    ch = addinput(d, 'dev1', 'ai4', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
     % Add stepper channel
-    ch = addinput(in, 'dev1', 'ai6', 'Voltage');
+    ch = addinput(d, 'dev1', 'ai6', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
@@ -202,7 +199,7 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
         lastIdx = 1;
         for i = 1 : 999
             daqExpData(lastIdx : indices(i + 1) - 1, 1) = mapping(arenaMSeq(i)); % Get voltage of index and add its time frame to DAQ
-            lastIdx = indices(i);
+            lastIdx = indices(i + 1);
         end
         fprintf('.');
 
@@ -211,7 +208,7 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
         
         fprintf('\tSetting initial position...\n');
         % Set initial position so jolt doesn't happen at beginning
-        write(out, [daqExpData(1, 1) 2.5]); % Write first voltage
+        write(d, [daqExpData(1, 1) 2.5]); % Write first voltage
 
         fprintf('Done setting up LED Arena.\n');
     end
@@ -280,12 +277,18 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
         % Coder's note: I need to change the m-sequence to a sequence of 0,
         % 2.5, and 5, as those are the voltages to indicate left, nothing,
         % and right, respectively. - nxz157, 6/16/2023
+        
+        daqExpData(1 : ARENA_DELAY * DAQ_RATE) = 2.5;
+        
+        % Coder's note: in practice, the arena is about 0.005s slower than
+        % the arena. To offset this, I am instituting a 0.005s delay on all
+        % input of the stepper to compensate for this delay. 
 
         % Loop through each element of X sequence
-        lastIdx = 1;
+        lastIdx = ARENA_DELAY * DAQ_RATE + 1;
         for i = 1 : 1999
             daqExpData(lastIdx : indices(i + 1) - 1, 2) = stepperMSeq(i); % Get voltage of index and add its time frame to DAQ
-            lastIdx = indices(i);
+            lastIdx = indices(i + 1);
         end
         fprintf('.');
     
@@ -297,11 +300,11 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     
     Panel_com('start');
     pause(2);
-    preload(out, daqExpData);
+    preload(d, daqExpData);
     pause(2);
-    start(out);
+    start(d, "Duration", seconds(duration))
     pause;
+    data = read(d, 'all');
     Stepper_com(stepper, 'reset');
     Panel_com('stop');
-    data = daqExpData;
 end
