@@ -13,7 +13,7 @@ function Stepper_com(port, command, argument)
 %
 % VERSION CHANGELOG:
 % - v1.0 (??/??/????): Initial commit
-% - v2.2 (6/16/2023): Added comments, added voltage functionality
+% - v1.1 (6/16/2023): Added comments, added voltage functionality
 
     % Coder's note: the below code was used before switching to the new
     % serialport. Now, only one serialport object is created at a time, so
@@ -83,7 +83,7 @@ function Stepper_com(port, command, argument)
             % of resetting the stepper. There are probably more elegant
             % ways of doing this, but this is what we have. Take it or
             % leave it. - nxz157, 6/16/2023
-            
+
         case 'reset'
             % Assert DTR to reset arduino
             setDTR(port,false);
