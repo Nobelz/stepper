@@ -1,4 +1,4 @@
-function [arenaFreq, stepperFreq] = determineFreq(exp)
+function [arenaFreq, stepperFreq] = determineFreq(data)
 % determineFreq.m
 % Determines the actual frequency of the stepper and LED arena.
 % This outputs 2 values, the first being the frequency of the LED arena,
@@ -17,10 +17,10 @@ function [arenaFreq, stepperFreq] = determineFreq(exp)
 DAQ_FREQ = 10000;
 
 % Get relevant data
-arena = exp.daq.data(:, 1);
-stepper = exp.daq.data(:, 5);
+arena = data.("Dev1_ai4");
+stepper = data.("Dev1_ai6");
 
-arenaIdx = find(diff(arena) > 2);
+arenaIdx = find(diff(abs(arena)) > 0.03);
 stepperIdx = find(diff(stepper) > 2);
 
 arenaPeriod = mean(diff(arenaIdx));

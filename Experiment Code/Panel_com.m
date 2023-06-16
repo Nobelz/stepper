@@ -178,3 +178,11 @@ case 'send_function'
  otherwise
     error('invalid command name, please check help')
 end
+
+function send_serial(cmd)
+    % Sends serial data from MATLAB to arena
+    s = serialport('COM5', 19200);
+    % Changed uchar to uint8, should be the same - nxz157 6/13/23
+    write(s, cmd, 'uint8'); 
+end
+end
