@@ -39,7 +39,6 @@ function Stepper_com(port, command, argument)
         case 'set_sequence_gain'
             send_serial(['G' uint8(argument)]);
         case 'send_sequence'
-%             argument(argument==-1)=2;             
             len = length(argument)/4;
             sequence = uint8(len);
             outbyte = uint8(0);
@@ -75,24 +74,37 @@ function Stepper_com(port, command, argument)
                 otherwise
                     error('Invalid trigger mode. Valid options: off step_on_trig start_on_trig')
             end
-        case 'voltage'
+        case 'voltage' % Tells stepper to listen to voltage
             send_serial('V');
+
+            % Coder's note: when entering "voltage" mode, a reset is needed
+            % in order to execute any other commands. Entering voltage mode
+            % enters an infinite loop which needs termination in the form
+            % of resetting the stepper. There are probably more elegant
+            % ways of doing this, but this is what we have. Take it or
+            % leave it. - nxz157, 6/16/2023
+            
         case 'reset'
             % Assert DTR to reset arduino
-%             s = serialport(port, 9600);
             setDTR(port,false);
             setDTR(port,true);
-            
-%             fopen(s);
-%             fclose(s);
-%             delete(s);
-%             delete(s);
-            pause(2);%block for the arduino to reboot
+
+            % Coder's note: sometimes the DTR is set to true initially, so
+            % turning it to false before turning it to true will make sure
+            % the stepper resets properly. - nxz157, 6/16/2023
+
+            pause(2); % Block MATLAB execution to account for rebooting time
         otherwise
             error(['Not a recognized command: "' command '"']);
     end
     
     function send_serial(cmd)
+        write(port, cmd, 'uint8');
+
+        % Coder's note: below were failed attempts to transfer to MATLAB's
+        % new serialport interface. Now, the serialport object is given as
+        % input to the function. - nxz157, 6/16/2023
+
 %         ss = serialport(port, 9600);
 %         setDTR(ss,false);
 %         ss.OutputBufferSize = 1024;
@@ -100,7 +112,6 @@ function Stepper_com(port, command, argument)
 %         write(ss, cmd, 'uint8');
 %         delete(ss);
         
-        write(port, cmd, 'uint8');
 %         warning off 'instrument:serial:ClassToBeRemoved'
 %         ss = serial(port,'DataTerminalReady','off','OutputBufferSize',1024,'Terminator','');%DTR is hard-wired to arduino reset so keep it off
 %         fopen(ss);
