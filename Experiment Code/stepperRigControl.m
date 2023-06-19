@@ -19,12 +19,13 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
 %   - setup: whether to rerun mappings
 %
 % Author: Nobel Zhou, nxz157
-% Date: 16 June 2023
-% Version: 0.2
+% Date: 19 June 2023
+% Version: 1.0
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/15/2023): Initial commit
 % - v0.2 (6/16/2023): Added stepper functionality
+% - v1.0 (6/19/2023): Production ready, added trigger functionality
 
     clc
     close all
@@ -93,9 +94,10 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     addoutput(d, 'dev1', 'ao1', 'Voltage'); % Output channel for Stepper
     fprintf('.');
     
-%     % Add trigger connection from arena controller
-%     addtrigger(out, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
-%     fprintf('.');
+    % Add trigger connection from arena controller
+    trigger = addtrigger(d, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
+    trigger.Condition = 'RisingEdge';
+    fprintf('.');
 
     % Setup input channels
     % Add arena control trigger channel
@@ -121,17 +123,24 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     % Add stepper channel
     ch = addinput(d, 'dev1', 'ai6', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
-    fprintf('.');
-    
     fprintf('.done\n');
     
     %% Setup LED Arena
-    fprintf('Setting up LED Arena...\n');
+    fprintf('Setting up LED Arena');
     Panel_com('clear'); % Clear LED Arena
+    fprintf('.');
+    Panel_com('stop'); % Stop LED Arena
+    fprintf('.');
+    Panel_com('stop_w_trig'); % Stop trigger
+    fprintf('.done\n');
     
     fprintf('\tLoading pattern...\n');
     Panel_com('set_pattern_id', pattern); % Load pattern onto arena
-    Panel_com('ident_compress_off'); % Idk what this does but it was in the previous file - nxz157
+    Panel_com('ident_compress_off'); 
+
+    % Coder's note: I do not know what the above command does, but it was
+    % carried over from the previous stepper rig control. If it aint broke,
+    % don't fix it - nxz157, 6/19/2023
     
     fprintf('\tSetting mode to position mode...\n');
     Panel_com('send_gain_bias', [10 0 10 0]);
@@ -169,7 +178,7 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
         end
         
         % Change m-sequence into positional data
-        arenaMSeq = cumsum(funcX); 
+        arenaMSeq = cumsum(funcV); 
         fprintf('.');
 
         % Coder's note: currently, because of the lack of outputs, X and Y 
@@ -298,13 +307,42 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
         fprintf('Done setting up Stepper.\n');
     end
     
-    Panel_com('start');
+    %% Final Preparations
+    fprintf('Performing final preparations...')
+    fprintf('\tSending DAQ Data..');
+    preload(d, daqExpData); % Send data to DAQ
     pause(2);
-    preload(d, daqExpData);
-    pause(2);
-    start(d, "Duration", seconds(duration))
-    pause;
-    data = read(d, 'all');
-    Stepper_com(stepper, 'reset');
-    Panel_com('stop');
+    fprintf('.done\n');
+    
+    fprintf('\tWaiting for user start signal...\n');
+    uiwait(msgbox({'Please arm camera and click ok to continue', ...
+        ['(Required buffer length ' num2str(duration) ' seconds)']}));
+    
+    fprintf('Starting execution...\n');
+    fprintf('\tStarting DAQ operation...\n');
+    start(d); % Start DAQ collection/writing and wait for trigger
+    fprintf('\tWaiting for trigger...\n');
+    Panel_com('start_w_trig'); % Send trigger to camera and DAQ
+    fprintf(['\tTrigger received. Waiting ' num2str(duration + 2) ' seconds...\n']);
+    pause(duration + 2); % Wait for DAQ to finish
+
+    % Coder's note: previously, we have used an IsDone to check to see if
+    % the DAQ is done. This was removed in the new DAQ interface, and any
+    % other calls like drawnow or what-not cause an async error. Thus, we
+    % cannot use a listener to call a function. The quick solution to this
+    % is simply to wait until we are sure the DAQ is finished, and then
+    % collect all the data at once. - nxz157, 6/19/2023
+    fprintf('\tData collection received.\nReading data..');
+    data = read(d, 'all'); % Reads all input data
+    fprintf('.done\n');
+
+    %% Reset and Cleanup Operations
+    fprintf('Performing cleanup...\n');
+    fprintf('\tResetting Stepper...\n');
+    Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
+    fprintf('\tStopping Arena...\n');
+    Panel_com('stop_w_trig'); % Stop triggering and stop arena
+    fprintf('\tClearing DAQ...\n');
+    clear d % Delete DAQ
+    fprintf('Done collecting data!');
 end

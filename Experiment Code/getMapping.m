@@ -1,4 +1,4 @@
-function mapping = getMapping
+  function mapping = getMapping
 % getMapping.m
 % Gets the specific arena voltages for each index.
 % Returns a 96-length row vector representing the voltage at each index
