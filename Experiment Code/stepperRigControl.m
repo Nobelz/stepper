@@ -29,11 +29,11 @@ function [data, time] = stepperRigControl(funcX, funcY, funcS, rateV, rateS, pat
     clc
     close all
     %% Check and Fill Arguments
-    if nargin < 8
+    if nargin < 7
         error('Not enough input arguments.');
     end
 
-    if nargin < 9
+    if nargin < 8
         setup = 0; % If setup input not provided, default to not doing setup
 
         % Coder's note: if no input is provided but no setup has been done
@@ -340,8 +340,10 @@ function [data, time] = stepperRigControl(funcX, funcY, funcS, rateV, rateS, pat
 
     %% Reset and Cleanup Operations
     fprintf('Performing cleanup...\n');
-    fprintf('\tResetting Stepper...\n');
-    Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
+    if rigUse(3)
+        fprintf('\tResetting Stepper...\n');
+        Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
+    end
     fprintf('\tStopping Arena...\n');
     Panel_com('stop_w_trig'); % Stop triggering and stop arena
     fprintf('\tClearing DAQ...\n');
