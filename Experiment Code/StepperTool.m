@@ -1,4 +1,4 @@
-function steppertool
+function StepperTool
     f = figure;
     f.Resize = 'off';
     f.NumberTitle = 'off';
