@@ -1,9 +1,8 @@
-function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, pattern, duration, setup)
+function [data, time] = stepperRigControl(funcX, funcY, funcS, rateV, rateS, pattern, duration, setup)
 % stepperRigControl.m
 % Rewrite for controlling the stepper and arena rig.
 %
 % Inputs:
-%   - treatment: the treatment of the fly (usually PCF)
 %   - funcX: the visual function for the figure in the arena, limit 1000; 
 %       in the event that no visual function is needed, provide an empty
 %       array of 0's
@@ -18,7 +17,7 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
 %   - duration: the length of the experiment
 %   - setup: whether to rerun mappings
 %
-% Author: Nobel Zhou, nxz157
+% Author: Nobel Zhou (nxz157)
 % Date: 19 June 2023
 % Version: 1.0
 %
@@ -308,7 +307,7 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     end
     
     %% Final Preparations
-    fprintf('Performing final preparations...')
+    fprintf('Performing final preparations...\n')
     fprintf('\tSending DAQ Data..');
     preload(d, daqExpData); % Send data to DAQ
     pause(2);
@@ -323,6 +322,9 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     start(d); % Start DAQ collection/writing and wait for trigger
     fprintf('\tWaiting for trigger...\n');
     Panel_com('start_w_trig'); % Send trigger to camera and DAQ
+
+    time = datetime('now'); % Record time
+
     fprintf(['\tTrigger received. Waiting ' num2str(duration + 2) ' seconds...\n']);
     pause(duration + 2); % Wait for DAQ to finish
 
@@ -344,5 +346,5 @@ function data = stepperRigControl(treatment, funcX, funcY, funcS, rateV, rateS, 
     Panel_com('stop_w_trig'); % Stop triggering and stop arena
     fprintf('\tClearing DAQ...\n');
     clear d % Delete DAQ
-    fprintf('Done collecting data!');
+    fprintf('Done collecting data!\n');
 end

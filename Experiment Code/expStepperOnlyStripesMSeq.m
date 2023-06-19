@@ -12,7 +12,7 @@ function expStepperOnlyStripesMSeq(flyNum, flyTrial, sequence, double, delayed)
 %   - delayed: whether the m-sequence should be delayed by 200 iterations
 %       (default is no (0))
 %
-% Author: Nobel Zhou
+% Author: Nobel Zhou (nxz157)
 % Date: 1 June 2023
 % Version: 0.2
 %

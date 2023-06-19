@@ -36,27 +36,27 @@ function steppertool
     function buttons(h,~)
         switch h
             case resetbtn
-                stepper_com('reset');
+                Stepper_com('reset');
             case leftbtn
-                stepper_com('step_left',1)
+                Stepper_com('step_left',1)
             case rightbtn
-                stepper_com('step_right',1)
+                Stepper_com('step_right',1)
             case left12btn
-                stepper_com('step_left',12)
+                Stepper_com('step_left',12)
             case right12btn
-                stepper_com('step_right',12)
+                Stepper_com('step_right',12)
             case left24btn
-                stepper_com('step_left',24)
+                Stepper_com('step_left',24)
             case right24btn
-                stepper_com('step_right',24)
+                Stepper_com('step_right',24)
             case left48btn
-                stepper_com('step_left',48)
+                Stepper_com('step_left',48)
             case right48btn
-                stepper_com('step_right',48)
+                Stepper_com('step_right',48)
             case left96btn
-                stepper_com('step_left',96)
+                Stepper_com('step_left',96)
             case right96btn
-                stepper_com('step_right',96)
+                Stepper_com('step_right',96)
         end
     end
 end
