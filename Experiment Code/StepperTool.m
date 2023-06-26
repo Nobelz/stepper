@@ -34,6 +34,8 @@ function StepperTool
     right96btn = uicontrol(f,'style','pushbutton','Callback',@buttons,...
         'Position',[150 0 150 100],'string','Step Right Full Turn >');
     function buttons(h,~)
+        
+
         switch h
             case resetbtn
                 Stepper_com('reset');

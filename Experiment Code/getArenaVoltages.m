@@ -16,6 +16,10 @@ function voltages = getArenaVoltages
     % Setup Panel Controller
     fprintf('\tSetting up Panel Controller');
     Panel_com('stop');
+    Panel_com('set_mode', [3 3]); % Set to position control mode
+    pause(2);
+    fprintf('.');
+    Panel_com('set_pattern_id', 2); % Set to striped pattern
     fprintf('.');
     Panel_com('set_position', [1 1]);
     fprintf('.done\n');
