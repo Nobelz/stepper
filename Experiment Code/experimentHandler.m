@@ -21,10 +21,13 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/19/2023): Initial commit
+% - v0.2 (6/30/2023): Changed striped pattern from 2 to 1 to account for
+%                       different card being used
     
     %% Define Constants
     DEFAULT_RATE = 50;
     DURATION = 20;
+    STRIPED_PATTERN = 1;
     PATH_TO_FOLDER = '../New Data/';
 
     %% Parse Arguments
@@ -85,7 +88,7 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             % - nxz157, 6/19/2023
 
             funcS = zeros(1, 1000); % Set the stepper m-sequence to all zeros so it doesn't move
-            pattern = 2; % Load stripes pattern
+            pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'StepperOnlyStripes'
             if doubled == 1
                 funcS = sequence * 2;
@@ -101,7 +104,7 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             funcX = zeros(1, 1000);
             funcY = zeros(1, 1000);
             
-            pattern = 2; % Load stripes pattern
+            pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'StepperOnlyAllOn'
             if doubled == 1
                 funcS = sequence * 2;
@@ -126,14 +129,14 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             % Generate new m-sequence for stepper
             funcS = generateMSeq();
 
-            pattern = 2; % Load stripes pattern
+            pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'BimodalCoherent'
             % Use same m-sequence for everything
             funcX = sequence;
             funcY = sequence;
             funcS = sequence;
 
-            pattern = 2; % Load stripes pattern
+            pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'BimodalOpposing'
             funcX = sequence;
             funcY = sequence;
@@ -141,7 +144,7 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             % Use opposite m-sequence for stepper
             funcS = -sequence;
 
-            pattern = 2; % Load stripes pattern
+            pattern = STRIPED_PATTERN; % Load stripes pattern
         otherwise
             error('Incorrect condition provided.');
     end
@@ -175,6 +178,7 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
         exp.funcS = funcS;
         exp.rateV = arenaRate;
         exp.rateS = stepperRate;
+        exp.pattern = pattern;
 
         fileName = [treatment '_F' num2str(flyNum) '_T' num2str(flyTrial)...
             '_' haltereString(haltere + 1, :) '_' condition '_' ...

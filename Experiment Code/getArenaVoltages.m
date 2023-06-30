@@ -17,7 +17,7 @@ function voltages = getArenaVoltages
     fprintf('\tSetting up Panel Controller');
     Panel_com('stop');
     Panel_com('set_mode', [3 3]); % Set to position control mode
-    pause(2);
+    pause(0.2);
     fprintf('.');
     Panel_com('set_pattern_id', 2); % Set to striped pattern
     fprintf('.');
@@ -42,9 +42,9 @@ function voltages = getArenaVoltages
     %% Loop Through Indices
     for i = 1 : 96
         fprintf(['\t\tDetermining Voltage of Frame ' num2str(i) ' of 96']);
-        Panel_com('set_position', [i i]); % Set position to index
+        Panel_com('set_position', [1 i]); % Set position to index
         fprintf('.');
-        pause(0.2);
+        pause(2);
         fprintf('.');
     
         TT = read(in, seconds(0.5)); % Block MATLAB and collect voltage data for 0.5 seconds
