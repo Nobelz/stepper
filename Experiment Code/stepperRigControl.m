@@ -167,7 +167,7 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
         fprintf('.done\n');
         
         fprintf('\tSetting initial position...\n');
-        Panel_com('set_position', [48 48]); % Write first voltage
+        Panel_com('set_position', [48 1]); % Write first position
 
         fprintf('Done setting up LED Arena.\n');
     end
@@ -197,13 +197,20 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
             Stepper_com(stepper, 'voltage');
             pause(1);
             
-            fprintf('\tParsing stepper m-sequence...\n');
-            stepperMSeq = funcS / gain * 45;
-    
-            % Coder's note: we set the magnitude to 45 so we get values of 
-            % 3, 48, and 93. Using these values, we can ensure that the 
-            % stepper can detect the voltage resolution and step left and 
-            % right, accordingly. - nxz157, 6/30/2023
+            fprintf('\tParsing stepper trigger m-sequence...\n');
+            stepperMSeq = ((-1) .^ (1 : 1000) + 1) * 95 + 1; % Create alternating vector of 1 and 96
+
+            % stepperMSeq = funcS / gain * 45;
+            % 
+            % % Coder's note: we set the magnitude to 45 so we get values of 
+            % % 3, 48, and 93. Using these values, we can ensure that the 
+            % % stepper can detect the voltage resolution and step left and 
+            % % right, accordingly. - nxz157, 6/30/2023
+
+            % Coder's note: the above is now obsolete, due to the fact that
+            % we are storing the stepper sequence on the stepper itself,
+            % and the arena X function is simply just triggering the
+            % stepper for each step. - nxz157, 7/3/2023
     
             fprintf('\tSending stepper function.')
             for i = 0 : 19
@@ -253,6 +260,7 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     % cannot use a listener to call a function. The quick solution to this
     % is simply to wait until we are sure the DAQ is finished, and then
     % collect all the data at once. - nxz157, 6/19/2023
+
     fprintf('\tData collection received.\nReading data..');
     data = read(d, 'all'); % Reads all input data
     fprintf('.done\n');
