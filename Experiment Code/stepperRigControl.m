@@ -17,8 +17,8 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
 %       50Hz
 %
 % Author: Nobel Zhou (nxz157)
-% Date: 19 June 2023
-% Version: 1.0
+% Date: 30 June 2023
+% Version: 1.1
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/15/2023): Initial commit
@@ -154,33 +154,46 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
         fprintf('.');
         Stepper_com(stepper, 'reset');
         fprintf('.done\n');
-
-        fprintf('\tSetting mode to voltage mode...\n');
-        Stepper_com(stepper, 'voltage');
-        pause(1);
         
         fprintf('\tSetting stepper gain...\n');
         gain = max(abs(funcS)); % The max should be 1, 2, etc., which specifies the gain
         Stepper_com(stepper, 'set_sequence_gain', gain);
-        
-        fprintf('\tParsing stepper m-sequence...\n');
-        stepperMSeq = funcS / gain * 45;
 
-        % Coder's note: we set the magnitude to 45 so we get values of 3,
-        % 48, and 93. Using these values, we can ensure that the stepper
-        % can detect the voltage resolution and step left and right,
-        % accordingly. - nxz157, 6/30/2023
-
-        fprintf('\tSending stepper function.')
-        for i = 0 : 19
-            j = 1 + i * 50;
-            k = j + 49;
+        if rigUse(1) % Only 50Hz available with arena
+            fprintf('\tSetting mode to voltage mode...\n');
+            Stepper_com(stepper, 'voltage');
+            pause(1);
+            
+            fprintf('\tParsing stepper m-sequence...\n');
+            stepperMSeq = funcS / gain * 45;
     
-            Panel_com('send_function', [2 i stepperMSeq(j : k)]); % 2 for X
-            fprintf('.');
-            pause(0.1);
+            % Coder's note: we set the magnitude to 45 so we get values of 
+            % 3, 48, and 93. Using these values, we can ensure that the 
+            % stepper can detect the voltage resolution and step left and 
+            % right, accordingly. - nxz157, 6/30/2023
+    
+            fprintf('\tSending stepper function.')
+            for i = 0 : 19
+                j = 1 + i * 50;
+                k = j + 49;
+        
+                Panel_com('send_function', [2 i stepperMSeq(j : k)]); % 2 for X
+                fprintf('.');
+                pause(0.1);
+            end
+            fprintf('.done\n');
+        else
+            fprintf('\tSending stepper function...\n');
+            Stepper_com(stepper, 'send_sequence', funcS);
+
+            fprintf('\tSetting trigger mode...\n')
+            Stepper_com(stepper, 'set_trig_mode', 'start_on_trig');
+
+            fprintf('\tSetting sequence rate...\n')
+            Stepper_com('set_sequence_rate', rate);
+            Panel_com('set_trigger_rate', 1);
         end
-        fprintf('.done\n');
+
         fprintf('Done setting up Stepper.\n');
     end
     
@@ -220,7 +233,7 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     % again and go through their m-sequence. This is normal and irrelevant,
     % as data has already been done collecting when this happens. - nxz157,
     % 6/30/2023
-    
+
     if rigUse(2)
         fprintf('\tResetting Stepper...\n');
         Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
