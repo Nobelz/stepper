@@ -24,15 +24,13 @@ function seq = generateMSeq(interleaved)
     else
         temp = mseq(2, 8, round(rand * 255), round(rand * 18)); % Generate m-sequence, 8th order
     end
-    
+
     temp = repmat(temp, [3 1]); % Repeat m-sequence 3 times
 
     seq = zeros(1, 1000);
     
-    if interleaved
-        for i = 1 : length(temp)
-            seq(i * 2) = temp(i); % Interleave 0's between each m-sequence iteration
-        end
+    for i = 1 : length(temp)
+        seq(i * (interleaved + 1)) = temp(i); % Interleave 0's between each m-sequence iteration, if necessary
     end
 end
 

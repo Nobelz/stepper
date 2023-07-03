@@ -10,7 +10,7 @@ function ms=mseq(baseVal,powerVal,shift,whichSeq)
 %		  baseVal  -nuber of sequence levels (2,3, or 5 allowed)
 %		  powerVal -power, so that sequence length is baseVal^powerVal-1
 %		  shift    -cyclical shift of the sequence
-%		  whichSeq -sequence istantiation to use 
+%		  whichSeq -sequence instantiation to use 
 %		  (numer of sequences varies with powerVal - see the code)
 
 % (c) Giedrius T. Buracas, SNL-B, Salk Institute
@@ -390,8 +390,8 @@ ms=zeros(bitNum,1);
 
 if isempty(whichSeq), whichSeq=ceil(rand(1)*length(tap)); 
 else 
-   if whichSeq>length(tap) | whichSeq<1
-      disp(sprintf(' wrapping arround!'));
+   if whichSeq>length(tap) || whichSeq<1
+      % fprintf(' wrapping around!\n'); Remove comment, nxz157 7/3/2023
       whichSeq=rem(whichSeq,length(tap))+1;
    end;
 end;
