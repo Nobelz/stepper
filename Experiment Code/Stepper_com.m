@@ -83,6 +83,15 @@ function Stepper_com(port, command, argument)
             % of resetting the stepper. There are probably more elegant
             % ways of doing this, but this is what we have. Take it or
             % leave it. - nxz157, 6/16/2023
+        
+        case 'arena'
+            send_serial('A');
+
+            % Coder's note: "arena" mode allows the stepper to be triggered
+            % from arena X channel, in response to BOTH rising and falling
+            % edge. The voltage from arena X does not contribute to the
+            % stepping pattern, so a sequence must be sent beforehand. -
+            % nxz157, 7/3/2023
 
         case 'reset'
             % Assert DTR to reset arduino

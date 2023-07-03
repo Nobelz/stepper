@@ -114,6 +114,9 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             % the m-sequence, as the m-sequence should only go to 1 to 
             % 3x127x2 (762), so with 200 delay, it should be 962 max.
             % - nxz157, 6/19/2023
+            % Coder's note: In the event of 8th order sequences, we do not
+            % interleave, so max would be 3x255 (765) + 200 = 965. Thus, we 
+            % can still do the above. - nxz157, 7/3/2023
 
             funcS = zeros(1, 1000); % Set the stepper m-sequence to all zeros so it doesn't move
             pattern = STRIPED_PATTERN; % Load stripes pattern

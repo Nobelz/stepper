@@ -78,11 +78,11 @@ void loop() {
     } else if (command == 'V') {          // begin voltage mode
       beginVoltage(gain);                 // begin voltage mode with desired duration
     } 
-    // else if (command == 'A') {          // begin arena mode: listen to arena output and move accordingly
-    //   while (Serial.available() < 2) {};  //wait for two bytes to be available
-    //   len = Serial.read();                // get length of commanded sequence in bytes
-    //   beginArena(len, gain);              // execute sequence mode with desired gain according to arena feedback
-    // }
+    else if (command == 'A') {          // begin arena mode: listen to arena output and move accordingly
+      while (Serial.available() < 2) {};  //wait for two bytes to be available
+      len = Serial.read();                // get length of commanded sequence in bytes
+      beginArena(len, gain);              // execute sequence mode with desired gain according to arena feedback
+    }
   }
 }
 
@@ -182,15 +182,52 @@ void beginVoltage(byte gain) {
   stepper.setSpeed(spd);  //set speed back to defined speed
 }
 
-// void beginArena(int len, byte gain) {
-//   stepper.setSpeed(255);  // temporarily set speed to maximum
-//   byte buff[len];         // define a byte buffer for the incomming sequence
+//sequence playback function
+void beginArena(int len, byte gain) {
+  stepper.setSpeed(255);  // Temporarily set speed to maximum
+  byte buff[len];         // Define a byte buffer for the incomming sequence
+  // Pull bytes from the serial buffer into the command buffer as they become available
+  int ctr = 0;
+  while (ctr < len) {
+    while (Serial.available() == 0) {};
+    buff[ctr] = Serial.read();
+    ctr++;
+  }
 
-//   // pull bytes from the serial buffer into the command buffer as they become available
-//   for (int i = 0; i < len; i++) {}
-//   while (Serial.available() == 0) {};
-//   buff[i] = Serial.read();
-// }
+  digitalWrite(4, LOW); // Set output to be low to begin
+
+  trigflag = 0;                // Flag for trigger up condition
+  unsigned long prevtime = 0;  // Last value of timer
+  long per = 1000 / rate;      // Number of milliseconds between steps
+  byte curbyte;                // Current command byte [4 commands per byte]
+  byte out = LOW;              // Stores the previous output so we can alternate for output logging
+
+  unsigned int lastState = analogRead(A1);
+  unsigned int currentState = analogRead(A1);  
+
+  // Start iterating through command bytes
+  for (int i = 0; i < len; i++) {
+    curbyte = buff[i];  // Assign next byte in buffer to curbyte
+    // Go through bits in current byte 2 at a time
+    for (int j = 0; j < 7; j = j + 2) {
+      while (abs(lastState - currentState) < 300) {} // Wait until rising/falling edge to be detected
+
+      // Change digital pin output
+      digitalWrite(4, 1 - out);
+      out = 1 - out;
+
+      if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  // Step right by 1 step if our command bits are 01 (1 in decimal)
+        stepper.step(1 * gain);
+      } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  // Step left by 1 step if our command bits are 10 (2 in decimal)
+        stepper.step(-1 * gain);
+      }
+      // Other command bits [00 (0 in decimal) and 11 (3 in decimal)] do nothing
+    }
+  }
+
+  // All done with sequence
+  stepper.setSpeed(spd);  // Set speed back to defined speed
+}
 
 //interrupt service routine for triggered recordings -- when attached, this is called whenever D2 goes high
 void flagup() {
