@@ -11,13 +11,14 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
 %   - condition: the condition of the fly (e.g. 'ArenaOnly')
 %   - doubled: whether the m-sequence should be doubled
 %   - delayed: whether the m-sequence should be delayed by 200 iterations
-%   - setup: whether voltages should be setup again
 %   - arenaRate: the rate at which the arena should be oscillated
+%                   (currently, the options are 25Hz or 50Hz, with 25Hz 
+%                   being default)
 %   - stepperRate: the rate at which the stepper should be oscillated
 %
 % Author: Nobel Zhou
-% Date: 19 June 2023
-% Version: 0.1
+% Date: 30 June 2023
+% Version: 0.2
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/19/2023): Initial commit
@@ -31,16 +32,8 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
     PATH_TO_FOLDER = '../New Data/';
 
     %% Parse Arguments
-    if nargin < 10
-        stepperRate = DEFAULT_RATE; % Default to default rate if no rate provided
-    end
-
-    if nargin < 9
-        arenaRate = DEFAULT_RATE; % Default to default rate if no rate provided
-    end
-    
     if nargin < 8
-        setup = 0; % No setup if input not provided
+        stepperRate = DEFAULT_RATE; % Default to default rate if no rate provided
     end
     
     if nargin < 7
@@ -57,16 +50,33 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
     end
     
     % Load conserved sequence if conserved trial
-    if strcmp(num2str(flyTrial), 'con')
-        load('./conserved_seq.mat', 'conserved_seq');
-        sequence = conserved_seq;
+    if strcmp(num2str(flyTrial), 'con1') || strcmp(num2str(flyTrial), 'con2') || strcmp(num2str(flyTrial), 'con')
+        load('./conservedSeq.mat', 'conservedSeq25Hz1');
+        load('./conservedSeq.mat', 'conservedSeq25Hz2');
+        load('./conservedSeq.mat', 'conservedSeq50Hz1');
+        load('./conservedSeq.mat', 'conservedSeq50Hz2');
+        
+        if strcmp(num2str(flyTrial), 'con2')
+            seq1 = conservedSeq2;
+            seq2 = conservedSeq1;
+        else
+            seq1 = conservedSeq1;
+            seq2 = conservedSeq2;
+        end
+        conserved = 1;
     else
-        sequence = generateMSeq(); % Generate new m-sequence if not conserved
+        conserved = 0; % Sequences will be generated later
     end
     
     % Check each condition
     switch (condition)
         case 'ArenaOnly'
+            if conserved
+                sequence = seq1;
+            else
+                sequence = generateMSeq();
+            end
+
             % Double sequence if necessary
             if doubled == 1  
                 funcX = sequence * 2;
