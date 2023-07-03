@@ -26,6 +26,7 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
 % - v1.0 (6/19/2023): Production ready, added trigger functionality
 % - v1.1 (6/30/2023): Changed from DAQ trigger to arena trigger due to
 %                       voltage problems, with stepper triggered from X
+% - v1.2 (7/3/2023): Added low trigger and stepper only functionality
 
     clc
     close all
@@ -108,6 +109,10 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     fprintf('\tLoading pattern...\n');
     Panel_com('set_pattern_id', pattern); % Load pattern onto arena
     Panel_com('ident_compress_off'); 
+
+    % Coder's note: I do not know what the above command does, but it was
+    % carried over from the previous stepper rig control. If it aint broke,
+    % don't fix it - nxz157, 6/19/2023
     
     fprintf('\tSetting trigger rate...\n');
     Panel_com('set_trigger_rate', 1);
@@ -119,24 +124,27 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
         checks = 1;
         while (read(d).('Dev1_ai1') > 2)
             fprintf('\t\tTrigger status check failed. Attempting to lower trigger voltage...\n');
-            Panel_com('start_w_trig');
+            Panel_com('start_w_trig'); % Start trigger to advance so it's low again
 
-            while (read(d).('Dev1_ai1') > 2)
-                if toc(loopTime) > 10
+            while (read(d).('Dev1_ai1') > 2) % Wait until the trigger is no longer high
+                if toc(loopTime) > 10 % If 10 seconds elapsed, there is something wrong and we should stop trying
                     error('\tCould not reset arena trigger before trial within 10 seconds. Exiting...\n');
                 end
                 pause(0.01);
             end
-            Panel_com('stop_w_trig');
+            Panel_com('stop_w_trig'); % Stop trigger and check if low
             fprintf(['\t\tChecking trigger status again (Iteration ' num2str(checks) ')...\n'])
             checks = checks + 1;
         end
     end
     fprintf('\t\tTrigger status check complete.\n');
 
-    % Coder's note: I do not know what the above command does, but it was
-    % carried over from the previous stepper rig control. If it aint broke,
-    % don't fix it - nxz157, 6/19/2023
+    % Coder's note: the above loop ensures that the trigger does not skip a
+    % frame. In certain cases, the trigger can be stopped while it is high,
+    % and since we look at the rising edge, we need to ensure that it
+    % starts low in order for the first frame to be triggered. The above
+    % code ensures that the trigger starts low, and if it doesn't work
+    % after 10 seconds, it throws an error. - nxz157, 7/3/2023
     
     if ~rigUse(1)
         fprintf('No function provided for LED Arena.\n')
