@@ -109,6 +109,31 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     Panel_com('set_pattern_id', pattern); % Load pattern onto arena
     Panel_com('ident_compress_off'); 
     
+    fprintf('\tSetting trigger rate...\n');
+    Panel_com('set_trigger_rate', 1);
+
+    % Ensure trigger starts on low first
+    fprintf('\tChecking trigger status...\n');
+    if read(d).('Dev1_ai1') > 2
+        loopTime = tic;
+        checks = 1;
+        while (read(d).('Dev1_ai1') > 2)
+            fprintf('\t\tTrigger status check failed. Attempting to lower trigger voltage...\n');
+            Panel_com('start_w_trig');
+
+            while (read(d).('Dev1_ai1') > 2)
+                if toc(loopTime) > 10
+                    error('\tCould not reset arena trigger before trial within 10 seconds. Exiting...\n');
+                end
+                pause(0.01);
+            end
+            Panel_com('stop_w_trig');
+            fprintf(['\t\tChecking trigger status again (Iteration ' num2str(checks) ')...\n'])
+            checks = checks + 1;
+        end
+    end
+    fprintf('\t\tTrigger status check complete.\n');
+
     % Coder's note: I do not know what the above command does, but it was
     % carried over from the previous stepper rig control. If it aint broke,
     % don't fix it - nxz157, 6/19/2023
