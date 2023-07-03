@@ -64,12 +64,22 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
         load('./conservedSeq.mat', 'conservedSeq50Hz1');
         load('./conservedSeq.mat', 'conservedSeq50Hz2');
         
-        if strcmp(num2str(flyTrial), 'con2')
-            seq1 = conservedSeq2;
-            seq2 = conservedSeq1;
+        if arenaRate == 25
+            if strcmp(num2str(flyTrial), 'con2')
+                seq1 = conservedSeq25Hz2;
+                seq2 = conservedSeq25Hz1;
+            else
+                seq1 = conservedSeq25Hz1;
+                seq2 = conservedSeq25Hz2;
+            end
         else
-            seq1 = conservedSeq1;
-            seq2 = conservedSeq2;
+            if strcmp(num2str(flyTrial), 'con2')
+                seq1 = conservedSeq50Hz2;
+                seq2 = conservedSeq50Hz1;
+            else
+                seq1 = conservedSeq50Hz1;
+                seq2 = conservedSeq50Hz2;
+            end
         end
         conserved = 1;
     else
