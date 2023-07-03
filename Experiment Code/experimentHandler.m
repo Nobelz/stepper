@@ -1,4 +1,4 @@
-function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doubled, delayed, setup, arenaRate, stepperRate)
+function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doubled, delayed, arenaRate, stepperRate)
 % experimentHandler.m
 % Handles and provides arguments for all arena/stepper experiments.
 % This can be called by hand, or through StepperApp.
@@ -32,8 +32,16 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
     PATH_TO_FOLDER = '../New Data/';
 
     %% Parse Arguments
-    if nargin < 8
+    if nargin < 9
         stepperRate = DEFAULT_RATE; % Default to default rate if no rate provided
+    end
+
+    if nargin < 8
+        arenaRate = DEFAULT_RATE; % Default to default rate if no rate provided
+    end
+
+    if arenaRate ~= 25 && arenaRate ~= 50
+        error('Arena rate must be 25Hz or 50Hz.');
     end
     
     if nargin < 7
@@ -74,7 +82,7 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             if conserved
                 sequence = seq1;
             else
-                sequence = generateMSeq();
+                sequence = generateMSeq(1);
             end
 
             % Double sequence if necessary

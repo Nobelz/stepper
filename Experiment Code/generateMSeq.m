@@ -13,7 +13,7 @@ function seq = generateMSeq(interleaved)
 %
 % VERSION CHANGELOG:
 % - v0.1 (4/17/2023): Initial commit
-% - v0.2 (7/3/2023): Added non-interleave option
+% - v0.2 (7/3/2023): Added non-interleave option, 8th order sequence
 
     if nargin < 1
         interleaved = 1;
