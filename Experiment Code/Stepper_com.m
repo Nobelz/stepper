@@ -84,8 +84,31 @@ function Stepper_com(port, command, argument)
             % ways of doing this, but this is what we have. Take it or
             % leave it. - nxz157, 6/16/2023
         
-        case 'arena'
-            send_serial('A');
+        case 'send_arena_sequence'
+            len = length(argument)/4;
+            sequence = uint8(len);
+            outbyte = uint8(0);
+            ctr = 1;
+            for i = 1:length(argument)
+                if argument(i) > 0
+                    outbyte=bitset(outbyte,ctr,1);
+                elseif argument(i) < 0
+                    outbyte=bitset(outbyte,ctr+1,1);
+                end
+                ctr = ctr+2;
+                if ctr==9
+                    sequence(end+1)=outbyte;
+                    outbyte = uint8(0);
+                    ctr=1;
+                end
+            end
+            sequence = ['A' sequence]; 
+            for i = 1:50:length(sequence)
+                iend = i+49;
+                iend = min([iend length(sequence)]);
+                send_serial(sequence(i:iend));
+                pause(.05);
+            end
 
             % Coder's note: "arena" mode allows the stepper to be triggered
             % from arena X channel, in response to BOTH rising and falling

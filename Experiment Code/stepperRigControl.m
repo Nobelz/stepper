@@ -77,7 +77,7 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
-    % Add stepper trigger channel
+    % Add stepper trigger (x) channel
     ch = addinput(d, 'dev1', 'ai3', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
@@ -154,20 +154,23 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
         fprintf('.');
         Panel_com('send_gain_bias', [0 0 0 0]);
         fprintf('.done\n');
+        
+        fprintf('\tParsing arena m-sequence...\n');
+        arenaMSeq = cumsum(funcV) + 48;
 
         fprintf('\tSending arena function.')
         for i = 0 : 19
             j = 1 + i * 50;
             k = j + 49;
     
-            Panel_com('send_function', [1 i funcV(j : k)]); % 1 for Y
+            Panel_com('send_function', [2 i arenaMSeq(j : k)]); % 2 for Y
             fprintf('.');
             pause(0.1);
         end
         fprintf('.done\n');
         
         fprintf('\tSetting initial position...\n');
-        Panel_com('set_position', [48 1]); % Write first position
+        Panel_com('set_position', [5 48]); % Write first position
 
         fprintf('Done setting up LED Arena.\n');
     end
@@ -193,12 +196,12 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
         Stepper_com(stepper, 'set_sequence_gain', gain);
 
         if rigUse(1) % Only 50Hz available with arena
-            fprintf('\tSetting mode to voltage mode...\n');
-            Stepper_com(stepper, 'voltage');
-            pause(1);
-            
             fprintf('\tParsing stepper trigger m-sequence...\n');
-            stepperMSeq = ((-1) .^ (1 : 1000) + 1) * 95 + 1; % Create alternating vector of 1 and 96
+            stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2 + 5; % Create alternating vector of 90 and 5
+
+            % Coder's note: the sequence starts with 96, as we initially
+            % set the position to be 1, and we need a change to occur to
+            % trigger the stepper. - nxz157, 7/3/2023
 
             % stepperMSeq = funcS / gain * 45;
             % 
@@ -212,25 +215,31 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
             % and the arena X function is simply just triggering the
             % stepper for each step. - nxz157, 7/3/2023
     
-            fprintf('\tSending stepper function.')
+            fprintf('\tSending stepper trigger function.')
             for i = 0 : 19
                 j = 1 + i * 50;
                 k = j + 49;
         
-                Panel_com('send_function', [2 i stepperMSeq(j : k)]); % 2 for X
+                Panel_com('send_function', [1 i stepperMSeq(j : k)]); % 1 for X
                 fprintf('.');
                 pause(0.1);
             end
             fprintf('.done\n');
-        else
+            
             fprintf('\tSending stepper function...\n');
-            Stepper_com(stepper, 'send_sequence', funcS);
+            Stepper_com(stepper, 'send_arena_sequence', funcS);
 
+            pause(1);
+        else
             fprintf('\tSetting trigger mode...\n')
             Stepper_com(stepper, 'set_trig_mode', 'start_on_trig');
 
             fprintf('\tSetting sequence rate...\n')
-            Stepper_com('set_sequence_rate', rate);
+            Stepper_com(stepper, 'set_sequence_rate', rate);
+            
+            fprintf('\tSending stepper function...\n');
+            Stepper_com(stepper, 'send_sequence', funcS);
+
             Panel_com('set_trigger_rate', 1);
         end
 

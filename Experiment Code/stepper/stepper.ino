@@ -80,7 +80,7 @@ void loop() {
     } 
     else if (command == 'A') {          // begin arena mode: listen to arena output and move accordingly
       while (Serial.available() < 2) {};  //wait for two bytes to be available
-      len = Serial.read();                // get length of commanded sequence in bytes
+      // len = Serial.read();                // get length of commanded sequence in bytes
       beginArena(len, gain);              // execute sequence mode with desired gain according to arena feedback
     }
   }
@@ -210,7 +210,10 @@ void beginArena(int len, byte gain) {
     curbyte = buff[i];  // Assign next byte in buffer to curbyte
     // Go through bits in current byte 2 at a time
     for (int j = 0; j < 7; j = j + 2) {
-      while (abs(lastState - currentState) < 300) {} // Wait until rising/falling edge to be detected
+      while (abs(lastState - currentState) < 600) { // Wait until rising/falling edge is detected
+        lastState = currentState;
+        currentState = analogRead(A1);
+      } 
 
       // Change digital pin output
       digitalWrite(4, 1 - out);
@@ -222,6 +225,8 @@ void beginArena(int len, byte gain) {
         stepper.step(-1 * gain);
       }
       // Other command bits [00 (0 in decimal) and 11 (3 in decimal)] do nothing
+
+      lastState = currentState;
     }
   }
 
