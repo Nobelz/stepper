@@ -80,7 +80,7 @@ void loop() {
     } 
     else if (command == 'A') {          // begin arena mode: listen to arena output and move accordingly
       while (Serial.available() < 2) {};  //wait for two bytes to be available
-      // len = Serial.read();                // get length of commanded sequence in bytes
+      len = Serial.read();                // get length of commanded sequence in bytes
       beginArena(len, gain);              // execute sequence mode with desired gain according to arena feedback
     }
   }
@@ -194,39 +194,42 @@ void beginArena(int len, byte gain) {
     ctr++;
   }
 
+  byte curbyte;                //current command byte [4 commands per byte] 
+  byte out = LOW;              // Stores the previous output so we can alternate for output logging
   digitalWrite(4, LOW); // Set output to be low to begin
 
-  trigflag = 0;                // Flag for trigger up condition
-  unsigned long prevtime = 0;  // Last value of timer
-  long per = 1000 / rate;      // Number of milliseconds between steps
-  byte curbyte;                // Current command byte [4 commands per byte]
-  byte out = LOW;              // Stores the previous output so we can alternate for output logging
-
-  unsigned int lastState = analogRead(A1);
-  unsigned int currentState = analogRead(A1);  
+  int lastState = analogRead(A1);
+  int currentState = analogRead(A1);  
+  long last = millis();
 
   // Start iterating through command bytes
   for (int i = 0; i < len; i++) {
     curbyte = buff[i];  // Assign next byte in buffer to curbyte
     // Go through bits in current byte 2 at a time
     for (int j = 0; j < 7; j = j + 2) {
-      while (abs(lastState - currentState) < 600) { // Wait until rising/falling edge is detected
+      while (millis() - last < 5) {
         lastState = currentState;
-        currentState = analogRead(A1);
-      } 
+        while (abs(lastState - currentState) < 400) { // Wait until rising/falling edge is detected
+          lastState = currentState;
+          currentState = analogRead(A1);
+        }
+      }
+
+      last = millis();
 
       // Change digital pin output
-      digitalWrite(4, 1 - out);
-      out = 1 - out;
-
       if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  // Step right by 1 step if our command bits are 01 (1 in decimal)
         stepper.step(1 * gain);
+        digitalWrite(4, 1 - out);
+        out = 1 - out;
       } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  // Step left by 1 step if our command bits are 10 (2 in decimal)
         stepper.step(-1 * gain);
+        digitalWrite(4, 1 - out);
+        out = 1 - out;
       }
       // Other command bits [00 (0 in decimal) and 11 (3 in decimal)] do nothing
 
-      lastState = currentState;
+      
     }
   }
 
