@@ -1,24 +1,21 @@
-function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
+function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duration, rate)
 % stepperRigControl.m
 % Rewrite for controlling the stepper and arena rig.
 %
 % Inputs:
 %   - funcV: the visual function for the background in the arena, limit 
 %       1000; in the event that no visual function is needed, provide an 
-%       empty array of 0's. Interleaved zeros necessary to match rate with
-%       stepper; otherwise, they are not necessary.
+%       empty array of 0's. 
 %   - funcS: the stepper pattern, limit 1000; in the event that no visual 
-%       function is needed, provide an empty array of 0's. Interleaved 
-%       zeros necessary if used with the arena; otherwise, they are not 
-%       necessary.
+%       function is needed, provide an empty array of 0's.
 %   - pattern: the arena pattern, usually 'all_on' or 1
 %   - duration: the length of the experiment
 %   - rate: the rate of the stepper, if using stepper only. The default is
 %       50Hz
 %
 % Author: Nobel Zhou (nxz157)
-% Date: 30 June 2023
-% Version: 1.1
+% Date: 5 July 2023
+% Version: 1.3
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/15/2023): Initial commit
@@ -27,8 +24,9 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
 % - v1.1 (6/30/2023): Changed from DAQ trigger to arena trigger due to
 %                       voltage problems, with stepper triggered from X
 % - v1.2 (7/3/2023): Added low trigger and stepper only functionality
+% - v1.3 (7/5/2023): Added ability for stepper/arena to go to 50Hz without
+%                       interleaved zeros
 
-    clc
     close all
     %% Check and Fill Arguments
     if nargin < 4
@@ -51,6 +49,12 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     if ~rigUse
         error('No pattern given for either arena or stepper.');
     end
+    
+    % Prepend 30 zeros to ensure DAQ doesn't miss start
+    funcV = [zeros(1, 30) funcV];
+    funcS = [zeros(1, 30) funcS];
+    funcV = funcV(1 : 1000);
+    funcS = funcS(1 : 1000);
     
     %% Define Constants
     DAQ_RATE = 10000;
@@ -92,11 +96,16 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
 
+    % Add stepper start channel
+    ch = addinput(d, 'dev1', 'ai14', 'Voltage');
+    ch.TerminalConfig = 'SingleEnded';
+    fprintf('.');
+
     % Add trigger connection from arena controller
     trigger = addtrigger(d, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
     trigger.Condition = 'RisingEdge';
     fprintf('.done\n');
-    
+
     %% Setup LED Arena
     fprintf('Setting up LED Arena');
     Panel_com('clear'); % Clear LED Arena
@@ -156,7 +165,7 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
         fprintf('.done\n');
         
         fprintf('\tParsing arena m-sequence...\n');
-        arenaMSeq = cumsum(funcV) + 48;
+        arenaMSeq = cumsum(funcV);
 
         fprintf('\tSending arena function.')
         for i = 0 : 19
@@ -168,7 +177,7 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
             pause(0.1);
         end
         fprintf('.done\n');
-        
+
         fprintf('\tSetting initial position...\n');
         Panel_com('set_position', [5 48]); % Write first position
 
@@ -247,7 +256,8 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
     end
     
     %% Final Preparations
-    fprintf('Performing final preparations...\n')
+    fprintf('Performing final preparations...\n');
+
     fprintf('\tWaiting for user start signal...\n');
     uiwait(msgbox({'Please arm camera and click ok to continue', ...
         ['(Required buffer length ' num2str(duration) ' seconds)']}));
@@ -260,8 +270,11 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
 
     time = datetime('now'); % Record time
 
-    fprintf(['\tTrigger received. Waiting ' num2str(duration) ' seconds...\n']);
-    pause(duration); % Wait for DAQ to finish
+    fprintf('\tTrigger received. Waiting for completion...\n');
+
+    while d.Running
+        drawnow;
+    end
 
     % Coder's note: previously, we have used an IsDone to check to see if
     % the DAQ is done. This was removed in the new DAQ interface, and any
@@ -288,7 +301,74 @@ function [data, time] = stepperRigControl(funcV, funcS, pattern, duration, rate)
         fprintf('\tResetting Stepper...\n');
         Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
     end
+
     fprintf('\tClearing DAQ...\n');
     clear d % Delete DAQ
-    fprintf('Done collecting data!\n');
+
+    %% Verification of Synchronization
+    fprintf('Verifying data...\n');
+    if ~rigUse(1) || ~rigUse(2)
+        fprintf('\tData verification skipped due to synchronization.\n');
+    else
+        fprintf('\tVerifying start times...\n');
+        stepper = data.('Dev1_ai6');
+        arena = data.('Dev1_ai4');
+        timeStepper = find(stepper > 3, 1); % Find first location of stepper start
+        timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
+
+        if abs(timeStepper - timeArena) >= 10
+            f = figure;
+            hold on;
+            plot(arena);
+            plot(stepper);
+            title('Start Verification');
+            ylim([0 5]);
+            xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+
+            startBtn = questdlg('There are concerns with synchronization between the arena and stepper start times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
+            close(f);
+        else
+            startBtn = 'Yes';
+        end
+        
+        fprintf('\tVerifying end times...\n');
+        stopSignal = data.('Dev1_ai14');
+        timeStop = find(diff(stopSignal) < -3, 1) + 10;
+        
+        arenaMod = arena(1 : timeStop); % Truncate end arena changes off
+
+        timeStepper = find(abs(diff(stepper)) > 3, 1, 'last'); % Find last location of stepper change
+        timeArena = find(abs(diff(arenaMod)) > 0.03, 1, 'last') + 1; % last first location of arena change
+
+        if abs(timeStepper - timeArena) >= 10
+            f = figure;
+            hold on;
+            plot(arena);
+            plot(stepper);
+            title('End Verification');
+            ylim([0 5]);
+            xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+
+            endBtn = questdlg('There are concerns with synchronization between the arena and stepper end times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'End Synchronization Good?', 'Yes', 'No', 'No');
+            close(f);
+        else
+            endBtn = 'Yes';
+        end
+    end
+    
+    fprintf('\tVerifying fly flight...\n');
+    
+    if strcmp(startBtn, 'Yes') && strcmp(endBtn, 'Yes')
+        btn = questdlg('If the fly did not stop flying, please select Yes. The default value is No.', 'Save This Trial?', 'Yes', 'No', 'No');
+    else
+        btn = 'No';
+    end
+
+    if strcmp(btn, 'Yes')
+        status = 1;
+        fprintf('Successfully collected data!\n');
+    else
+        status = 0;
+        fprintf('Unsuccessful data collection.\n');
+    end
 end

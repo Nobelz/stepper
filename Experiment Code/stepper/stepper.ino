@@ -20,6 +20,9 @@ void setup() {
   // set digital pin 4 to output for stepper timing information
   pinMode(4, OUTPUT);
 
+  // set digital pin 3 to output for ending of sequence
+  pinMode(3, OUTPUT);
+
   //set speed to default
   stepper.setSpeed(spd);
 
@@ -197,43 +200,58 @@ void beginArena(int len, byte gain) {
   byte curbyte;                //current command byte [4 commands per byte] 
   byte out = LOW;              // Stores the previous output so we can alternate for output logging
   digitalWrite(4, LOW); // Set output to be low to begin
+  digitalWrite(3, LOW); // Set output to be low to begin
 
   int lastState = analogRead(A1);
   int currentState = analogRead(A1);  
-  long last = millis();
+  int count = 0;
+  long lastTime = millis();
+  bool stillData = true;
 
   // Start iterating through command bytes
   for (int i = 0; i < len; i++) {
     curbyte = buff[i];  // Assign next byte in buffer to curbyte
     // Go through bits in current byte 2 at a time
     for (int j = 0; j < 7; j = j + 2) {
-      while (millis() - last < 5) {
+      // Debounce delay: ensure that the stepper does not fire twice within 5ms accidentally
+      while (millis() - lastTime < 5) {
         lastState = currentState;
         while (abs(lastState - currentState) < 400) { // Wait until rising/falling edge is detected
           lastState = currentState;
           currentState = analogRead(A1);
         }
       }
+      
+      count++;
+      if (count == 31) {
+         digitalWrite(3, HIGH); // Notify arena/controller that sequence has started
+      }
 
-      last = millis();
-
+      lastTime = millis();
+     
       // Change digital pin output
       if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  // Step right by 1 step if our command bits are 01 (1 in decimal)
         stepper.step(1 * gain);
         digitalWrite(4, 1 - out);
         out = 1 - out;
+        stillData = true;
       } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  // Step left by 1 step if our command bits are 10 (2 in decimal)
         stepper.step(-1 * gain);
         digitalWrite(4, 1 - out);
         out = 1 - out;
+        stillData = true;
+      } else {
+        if (!stillData && count > 300) {
+          digitalWrite(3, LOW); // Set output to be low to end
+        }
+        stillData = false;
       }
       // Other command bits [00 (0 in decimal) and 11 (3 in decimal)] do nothing
-
+  
       
     }
   }
 
-  // All done with sequence
   stepper.setSpeed(spd);  // Set speed back to defined speed
 }
 
