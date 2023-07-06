@@ -1,4 +1,4 @@
-function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doubled, delayed, arenaRate, stepperRate)
+function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doubled, delayed, arenaRate, stepperRate)
 % experimentHandler.m
 % Handles and provides arguments for all arena/stepper experiments.
 % This can be called by hand, or through StepperApp.
@@ -11,10 +11,14 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
 %   - condition: the condition of the fly (e.g. 'ArenaOnly')
 %   - doubled: whether the m-sequence should be doubled
 %   - delayed: whether the m-sequence should be delayed by 200 iterations
-%   - arenaRate: the rate at which the arena should be oscillated
-%                   (currently, the options are 25Hz or 50Hz, with 25Hz 
-%                   being default)
-%   - stepperRate: the rate at which the stepper should be oscillated
+%   - arenaRate: the rate at which the arena should be oscillated. 
+%                   Currently, the options are 25Hz or 50Hz, with 25Hz 
+%                   being default; in stepper-only trials, set the rate to
+%                   0.
+%   - stepperRate: the rate at which the stepper should be oscillated. In
+%                   arena-only trials, set the rate to 0. In bimodal
+%                   trials, this does nothing and the stepper rate is the
+%                   arena rate.
 %
 % Author: Nobel Zhou
 % Date: 30 June 2023
@@ -39,11 +43,31 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
     if nargin < 8
         arenaRate = DEFAULT_RATE; % Default to default rate if no rate provided
     end
-
-    if arenaRate ~= 25 && arenaRate ~= 50
-        error('Arena rate must be 25Hz or 50Hz.');
-    end
     
+    if strncmpi(condition, 'Stepper', 7)
+        arenaRate = 0;
+    elseif strncmpi(condition, 'Arena', 5)
+        stepperRate = 0; 
+
+        if arenaRate ~= 25 && arenaRate ~= 50
+            error('Arena rate must be 25Hz or 50Hz for arena trials.');
+        end
+    elseif strncmpi(condition, 'Bimodal', 7)
+        if arenaRate ~= 25 && arenaRate ~= 50
+            error('Arena rate must be 25Hz or 50Hz for bimodal trials.');
+        end    
+
+        if arenaRate ~= stepperRate
+            warning('Stepper rate not same to arena rate. Setting stepper rate to be arena rate...');
+            stepperRate = arenaRate;
+        end
+
+        delayed = 0;
+        doubled = 0;
+    else
+        error('Incorrect condition provided.');
+    end
+
     if nargin < 7
         delayed = 0; % Do not delay if not provided
     end
@@ -90,24 +114,23 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
     switch (condition)
         case 'ArenaOnly'
             if conserved
-                sequence = seq1;
+                funcV = seq1;
             else
-                sequence = generateMSeq(1);
+                if arenaRate == 25
+                    funcV = generateMSeq(1);
+                else
+                    funcV = generateMSeq(0);
+                end
             end
 
             % Double sequence if necessary
             if doubled == 1  
-                funcX = sequence * 2;
-                funcY = sequence * 2;
-            else
-                funcX = sequence;
-                funcY = sequence;
+                funcV = funcV * 2;
             end
             
             % Delay sequence if necessary
             if delayed == 1
-                funcX = [zeros(1, 200) funcX(1 : end - 200)];
-                funcY = [zeros(1, 200) funcY(1 : end - 200)];
+                funcV = [zeros(1, 200) funcV(1 : end - 200)];
             end
 
             % Coder's note: It's ok to chip off the last 200 iterations of 
@@ -117,14 +140,21 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             % Coder's note: In the event of 8th order sequences, we do not
             % interleave, so max would be 3x255 (765) + 200 = 965. Thus, we 
             % can still do the above. - nxz157, 7/3/2023
+            % Coder's note: We are now delaying the m-sequence by 30
+            % because the DAQ starts too early. Note that this is still
+            % less than 1000, so no data will be lost. - nxz157, 7/6/2023
 
             funcS = zeros(1, 1000); % Set the stepper m-sequence to all zeros so it doesn't move
             pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'StepperOnlyStripes'
-            if doubled == 1
-                funcS = sequence * 2;
+            if conserved
+                funcS = seq1;
             else
-                funcS = sequence;
+                funcS = generateMSeq(0);
+            end
+
+            if doubled == 1
+                funcS = funcS * 2;
             end
 
             if delayed == 1
@@ -132,15 +162,18 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             end
             
             % Set arena m-sequences to all zeros so no movement in arena
-            funcX = zeros(1, 1000);
-            funcY = zeros(1, 1000);
+            funcV = zeros(1, 1000);
             
             pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'StepperOnlyAllOn'
-            if doubled == 1
-                funcS = sequence * 2;
+           if conserved
+                funcS = seq1;
             else
-                funcS = sequence;
+                funcS = generateMSeq(0);
+            end
+
+            if doubled == 1
+                funcS = funcS * 2;
             end
 
             if delayed == 1
@@ -148,32 +181,50 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
             end
 
             % Set arena m-sequences to all zeros so no movement in arena
-            funcX = zeros(1, 1000);
-            funcY = zeros(1, 1000);
+            funcV = zeros(1, 1000);
             
             pattern = 'AllOn'; % Load all on pattern
         case 'BimodalRandom'
-            % Set arena to random m-sequence
-            funcX = sequence;
-            funcY = sequence;
-
-            % Generate new m-sequence for stepper
-            funcS = generateMSeq();
+            if conserved
+                funcV = seq1;
+                funcS = seq2;
+            else
+                if arenaRate == 25
+                    funcV = generateMSeq(1);
+                    funcS = generateMSeq(1);
+                else
+                    funcV = generateMSeq(0);
+                    funcS = generateMSeq(0);
+                end
+            end
 
             pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'BimodalCoherent'
             % Use same m-sequence for everything
-            funcX = sequence;
-            funcY = sequence;
-            funcS = sequence;
+            if conserved
+                funcV = seq1;
+                funcS = seq1;
+            else
+                if arenaRate == 25
+                    funcV = generateMSeq(1);
+                    funcS = generateMSeq(1);
+                else
+                    funcV = generateMSeq(0);
+                    funcS = generateMSeq(1);
+                end
+            end
 
             pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'BimodalOpposing'
-            funcX = sequence;
-            funcY = sequence;
+            % Use same m-sequence for everything
+            if conserved
+                funcV = seq1;
+            else
+                funcV = generateMSeq(1);
+            end
 
             % Use opposite m-sequence for stepper
-            funcS = -sequence;
+            funcS = -funcV;
 
             pattern = STRIPED_PATTERN; % Load stripes pattern
         otherwise
@@ -183,13 +234,9 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
 
     %% Collect Data
     % Pass arguments to stepper rig control
-    [data, time] = stepperRigControl(funcX, funcY, funcS, arenaRate, stepperRate, pattern, DURATION, setup);
+    [data, time, status] = stepperRigControl(funcV, funcS, pattern, DURATION, stepperRate);
 
-    fprintf('Awaiting user input...\n');
-    % Check if we want to save this trial
-    btn = questdlg('Save This Trial?','Save Trial', 'Yes', 'No', 'No');
-
-    if strcmp(btn, 'Yes')
+    if status == 1
         fprintf('Saving trial...\n');
 
         haltereString = ['HL'; 'IN'];
@@ -205,7 +252,7 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
         exp.treatment = treatment;
         exp.haltere = haltereString(haltere + 1, :);
         exp.condition = condition;
-        exp.funcV = funcX;
+        exp.funcV = funcV;
         exp.funcS = funcS;
         exp.rateV = arenaRate;
         exp.rateS = stepperRate;
@@ -219,6 +266,16 @@ function experimentHandler(flyNum, flyTrial, treatment, haltere, condition, doub
         fileName = fullfile(folderName, fileName);
         fprintf('Saving file to folder...\n');
         save(fileName, 'exp');
+
+        repeat = 0;
+    else
+        btn = questdlg('Data collection failed; do you want to try again? The default value is Yes.', 'Repeat?', 'Yes', 'No', 'Yes');
+       
+        if strcmp(btn, 'Yes')
+            repeat = 1;
+        else
+            repeat = 0;
+        end
     end
 end
 

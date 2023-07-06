@@ -26,6 +26,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 % - v1.2 (7/3/2023): Added low trigger and stepper only functionality
 % - v1.3 (7/5/2023): Added ability for stepper/arena to go to 50Hz without
 %                       interleaved zeros
+% - v1.4 (7/6/2023): Added verification ability
 
     close all
     %% Check and Fill Arguments
@@ -344,7 +345,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
         timeStepper = find(abs(diff(stepper)) > 3, 1, 'last') + 1; % Find last location of stepper change
         timeArena = find(abs(diff(arenaMod)) > 0.03, 1, 'last') + 1; % last first location of arena change
 
-        if abs(timeStepper - timeArena) >= 10
+        if abs(timeStepper - timeArena) >= 10 || strcmp(startBtn, 'Yes')
             f = figure;
             hold on;
             plot(arena);
