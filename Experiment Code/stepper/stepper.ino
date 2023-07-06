@@ -3,6 +3,7 @@
 //define global variables
 const int stepsPerRevolution = 96;
 int len = 1000;
+int seqLength = 1000;
 int rate = 20;
 byte gain = 1;
 byte val = 0;
@@ -80,11 +81,15 @@ void loop() {
       Serial.print(command);              //print feedback
     } else if (command == 'V') {          // begin voltage mode
       beginVoltage(gain);                 // begin voltage mode with desired duration
-    } 
-    else if (command == 'A') {          // begin arena mode: listen to arena output and move accordingly
-      while (Serial.available() < 2) {};  //wait for two bytes to be available
+    } else if (command == 'A') {          // begin arena mode: listen to arena output and move accordingly
+      while (Serial.available() < 2) {};  //wait for 3 bytes to be available
       len = Serial.read();                // get length of commanded sequence in bytes
-      beginArena(len, gain);              // execute sequence mode with desired gain according to arena feedback
+      beginArena(len, seqLength, gain);  // execute sequence mode with desired gain according to arena feedback
+    } else if (command == 'Q') {          // begin arena mode: listen to arena output and move accordingly
+      while (Serial.available() < 2) {};  // wait for 2 bytes to be available
+      byte first = Serial.read();
+      byte second = Serial.read();
+      seqLength = (int) first * 256 + (int) second;  
     }
   }
 }
@@ -186,7 +191,7 @@ void beginVoltage(byte gain) {
 }
 
 //sequence playback function
-void beginArena(int len, byte gain) {
+void beginArena(int len, int seqLength, byte gain) {
   stepper.setSpeed(255);  // Temporarily set speed to maximum
   byte buff[len];         // Define a byte buffer for the incomming sequence
   // Pull bytes from the serial buffer into the command buffer as they become available
@@ -197,58 +202,53 @@ void beginArena(int len, byte gain) {
     ctr++;
   }
 
-  byte curbyte;                //current command byte [4 commands per byte] 
-  byte out = LOW;              // Stores the previous output so we can alternate for output logging
-  digitalWrite(4, LOW); // Set output to be low to begin
-  digitalWrite(3, LOW); // Set output to be low to begin
+  byte curbyte;          //current command byte [4 commands per byte]
+  byte out = LOW;        // Stores the previous output so we can alternate for output logging
+  digitalWrite(4, LOW);  // Set output to be low to begin
+  digitalWrite(3, LOW);  // Set output to be low to begin
 
   int lastState = analogRead(A1);
-  int currentState = analogRead(A1);  
+  int currentState = analogRead(A1);
   int count = 0;
   long lastTime = millis();
-  bool stillData = true;
+  bool risingEdge = true; // Stores whether we are looking for rising edge or falling edge
 
   // Start iterating through command bytes
   for (int i = 0; i < len; i++) {
     curbyte = buff[i];  // Assign next byte in buffer to curbyte
     // Go through bits in current byte 2 at a time
     for (int j = 0; j < 7; j = j + 2) {
-      // Debounce delay: ensure that the stepper does not fire twice within 5ms accidentally
-      while (millis() - lastTime < 5) {
+      while ((risingEdge && lastState - currentState > -400) || (!risingEdge && lastState - currentState < 400)) {
         lastState = currentState;
-        while (abs(lastState - currentState) < 400) { // Wait until rising/falling edge is detected
-          lastState = currentState;
-          currentState = analogRead(A1);
-        }
-      }
-      
-      count++;
-      if (count == 31) {
-         digitalWrite(3, HIGH); // Notify arena/controller that sequence has started
+        currentState = analogRead(A1);
       }
 
-      lastTime = millis();
-     
+      currentState = lastState;
+      risingEdge = !risingEdge;
+
+      count++;
+      if (count == 31) {
+        digitalWrite(3, HIGH);  // Notify arena/controller that sequence has started
+      } else if (count > seqLength) {
+        digitalWrite(3, LOW);
+        break;
+      }
+
       // Change digital pin output
       if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  // Step right by 1 step if our command bits are 01 (1 in decimal)
         stepper.step(1 * gain);
         digitalWrite(4, 1 - out);
         out = 1 - out;
-        stillData = true;
       } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  // Step left by 1 step if our command bits are 10 (2 in decimal)
         stepper.step(-1 * gain);
         digitalWrite(4, 1 - out);
         out = 1 - out;
-        stillData = true;
-      } else {
-        if (!stillData && count > 300) {
-          digitalWrite(3, LOW); // Set output to be low to end
-        }
-        stillData = false;
       }
       // Other command bits [00 (0 in decimal) and 11 (3 in decimal)] do nothing
-  
-      
+    }
+
+    if (count > seqLength) {
+      break;
     }
   }
 

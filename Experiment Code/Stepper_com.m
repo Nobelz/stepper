@@ -63,6 +63,10 @@ function Stepper_com(port, command, argument)
                 send_serial(sequence(i:iend));
                 pause(.05);
             end
+        case 'send_sequence_length'
+            first = idivide(argument, int16(256));
+            second = argument - 256 * first;
+            send_serial(['Q' uint8(first) uint8(second)]);
         case 'set_trig_mode'
             switch argument
                 case 'off'

@@ -206,8 +206,8 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 
         if rigUse(1) % Only 50Hz available with arena
             fprintf('\tParsing stepper trigger m-sequence...\n');
-            stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2 + 5; % Create alternating vector of 90 and 5
-
+            stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
+            
             % Coder's note: the sequence starts with 96, as we initially
             % set the position to be 1, and we need a change to occur to
             % trigger the stepper. - nxz157, 7/3/2023
@@ -223,7 +223,11 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
             % we are storing the stepper sequence on the stepper itself,
             % and the arena X function is simply just triggering the
             % stepper for each step. - nxz157, 7/3/2023
-    
+            
+            fprintf('\tSending sequence length...\n');
+            finalIndex = find(abs(funcS) > 0, 1, 'last') + 1;
+            Stepper_com(stepper, 'send_sequence_length', finalIndex);
+
             fprintf('\tSending stepper trigger function.')
             for i = 0 : 19
                 j = 1 + i * 50;
@@ -337,7 +341,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
         
         arenaMod = arena(1 : timeStop); % Truncate end arena changes off
 
-        timeStepper = find(abs(diff(stepper)) > 3, 1, 'last'); % Find last location of stepper change
+        timeStepper = find(abs(diff(stepper)) > 3, 1, 'last') + 1; % Find last location of stepper change
         timeArena = find(abs(diff(arenaMod)) > 0.03, 1, 'last') + 1; % last first location of arena change
 
         if abs(timeStepper - timeArena) >= 10
@@ -357,7 +361,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     end
     
     fprintf('\tVerifying fly flight...\n');
-    
+
     if strcmp(startBtn, 'Yes') && strcmp(endBtn, 'Yes')
         btn = questdlg('If the fly did not stop flying, please select Yes. The default value is No.', 'Save This Trial?', 'Yes', 'No', 'No');
     else
