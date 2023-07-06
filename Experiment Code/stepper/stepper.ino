@@ -142,12 +142,17 @@ void beginSequence(int len, int rate, byte gain) {
       // Write digital pin up
       digitalWrite(4, HIGH);
 
-      if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  //step right by 1 step if our command bits are 01 (1 in decimal)
-        stepper.step(1 * gain);
-      } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  //step left by 1 step if our command bits are 10 (2 in decimal)
+      if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  //step left by 1 step if our command bits are 01 (1 in decimal)
         stepper.step(-1 * gain);
+      } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  //step right by 1 step if our command bits are 10 (2 in decimal)
+        stepper.step(1 * gain);
       }
       //other command bits [00 (0 in decimal) and 11 (3 in decimal)] do nothing
+
+      /*
+      Coder's note: the direction of the sequence and arena mode has been flipped, so it aligns in the same direction of the arena. 
+      Otherwise, stepping 1 in the arena did the complete opposite direction than stepping 1 in the stepper. - nxz157, 7/6/2023
+      */
     }
   }
   //all done with sequence
@@ -235,12 +240,12 @@ void beginArena(int len, int seqLength, byte gain) {
       }
 
       // Change digital pin output
-      if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  // Step right by 1 step if our command bits are 01 (1 in decimal)
-        stepper.step(1 * gain);
+      if ((bitRead(curbyte, j) == 0) & (bitRead(curbyte, j + 1) == 1)) {  // Step left by 1 step if our command bits are 01 (1 in decimal)
+        stepper.step(-1 * gain);
         digitalWrite(4, 1 - out);
         out = 1 - out;
-      } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  // Step left by 1 step if our command bits are 10 (2 in decimal)
-        stepper.step(-1 * gain);
+      } else if ((bitRead(curbyte, j) == 1) & (bitRead(curbyte, j + 1) == 0)) {  // Step right by 1 step if our command bits are 10 (2 in decimal)
+        stepper.step(1 * gain);
         digitalWrite(4, 1 - out);
         out = 1 - out;
       }

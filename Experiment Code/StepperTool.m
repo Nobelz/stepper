@@ -1,4 +1,8 @@
 function StepperTool
+    STEPPER_PORT = 'COM3';
+    stepper = serialport(STEPPER_PORT, 9600);
+    stepper.OutputBufferSize = 1024;
+
     f = figure;
     f.Resize = 'off';
     f.NumberTitle = 'off';
@@ -38,27 +42,27 @@ function StepperTool
 
         switch h
             case resetbtn
-                Stepper_com('reset');
+                Stepper_com(stepper, 'reset');
             case leftbtn
-                Stepper_com('step_left',1)
+                Stepper_com(stepper, 'step_left',1)
             case rightbtn
-                Stepper_com('step_right',1)
+                Stepper_com(stepper, 'step_right',1)
             case left12btn
-                Stepper_com('step_left',12)
+                Stepper_com(stepper, 'step_left',12)
             case right12btn
-                Stepper_com('step_right',12)
+                Stepper_com(stepper, 'step_right',12)
             case left24btn
-                Stepper_com('step_left',24)
+                Stepper_com(stepper, 'step_left',24)
             case right24btn
-                Stepper_com('step_right',24)
+                Stepper_com(stepper, 'step_right',24)
             case left48btn
-                Stepper_com('step_left',48)
+                Stepper_com(stepper, 'step_left',48)
             case right48btn
-                Stepper_com('step_right',48)
+                Stepper_com(stepper, 'step_right',48)
             case left96btn
-                Stepper_com('step_left',96)
+                Stepper_com(stepper, 'step_left',96)
             case right96btn
-                Stepper_com('step_right',96)
+                Stepper_com(stepper, 'step_right',96)
         end
     end
 end
