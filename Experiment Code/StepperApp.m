@@ -74,16 +74,18 @@ classdef StepperApp < matlab.apps.AppBase
                     app.Conserved2Button.Enable = 'off';
                 end
             else
-                if ~strncmpi(app.ExperimentModeDropDown.Value, 'Bimodal', 7)
-                    app.DelayedCheckBox.Enable = 'on';
-                    app.DoubledCheckBox.Enable = 'on';
+                if ~strcmp(app.ExperimentModeDropDown.Value, 'Select...')
+                    if ~strncmpi(app.ExperimentModeDropDown.Value, 'Bimodal', 7)
+                        app.DelayedCheckBox.Enable = 'on';
+                        app.DoubledCheckBox.Enable = 'on';
+                    end
+    
+                    app.TrialNumberSpinner.Enable = 'on';
+                    app.TrialNumberSpinnerLabel.Enable = 'on';
+                    app.ConservedButtonGroup.Enable = 'off';
+                    app.Conserved1Button.Enable = 'off';
+                    app.Conserved2Button.Enable = 'off';
                 end
-
-                app.TrialNumberSpinner.Enable = 'on';
-                app.TrialNumberSpinnerLabel.Enable = 'on';
-                app.ConservedButtonGroup.Enable = 'off';
-                app.Conserved1Button.Enable = 'off';
-                app.Conserved2Button.Enable = 'off';
             end
         end
 
@@ -153,8 +155,6 @@ classdef StepperApp < matlab.apps.AppBase
 
         % Button pushed function: StartButton
         function StartButtonPushed(app, event)
-            disableAll(app);
-            
             if app.ConservedTrialCheckBox.Value
                 if strcmp(app.ExperimentModeDropDown.Value, 'BimodalRandom')
                     if app.Conserved1Button.Value
@@ -186,10 +186,13 @@ classdef StepperApp < matlab.apps.AppBase
                 stepperHz = arenaHz;
             end
             
-            while (experimentHandler(app.FlyNumberSpinner.Value, ...
-                trial, 'PCF', ~app.HalterelessCheckBox.Value, ...
-                app.ExperimentModeDropDown.Value, doubled, delayed, ...
-                arenaHz, stepperHz))
+            flyNum = app.FlyNumberSpinner.Value;
+            condition = app.ExperimentModeDropDown.Value;
+            haltere = ~app.HalterelessCheckBox.Value;
+
+            disableAll(app);
+            while (experimentHandler(flyNum, trial, 'PCF', haltere, ...
+                condition, doubled, delayed, arenaHz, stepperHz))
             end
         
             enableAll(app);

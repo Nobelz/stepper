@@ -314,6 +314,8 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     fprintf('Verifying data...\n');
     if ~rigUse(1) || ~rigUse(2)
         fprintf('\tData verification skipped due to synchronization.\n');
+        startBtn = 'Yes';
+        endBtn = 'Yes';
     else
         fprintf('\tVerifying start times...\n');
         stepper = data.('Dev1_ai6');
