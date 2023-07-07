@@ -203,16 +203,15 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
             % Use same m-sequence for everything
             if conserved
                 funcV = seq1;
-                funcS = seq1;
             else
                 if arenaRate == 25
                     funcV = generateMSeq(1);
-                    funcS = generateMSeq(1);
                 else
                     funcV = generateMSeq(0);
-                    funcS = generateMSeq(1);
                 end
             end
+
+            funcS = funcV;
 
             pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'BimodalOpposing'
@@ -220,7 +219,11 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
             if conserved
                 funcV = seq1;
             else
-                funcV = generateMSeq(1);
+                if arenaRate == 25
+                    funcV = generateMSeq(1);
+                else
+                    funcV = generateMSeq(0);
+                end
             end
 
             % Use opposite m-sequence for stepper
