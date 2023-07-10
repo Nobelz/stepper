@@ -27,8 +27,10 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 % - v1.3 (7/5/2023): Added ability for stepper/arena to go to 50Hz without
 %                       interleaved zeros
 % - v1.4 (7/6/2023): Added verification ability
+    
+    clc;
+    close all;
 
-    close all
     %% Check and Fill Arguments
     if nargin < 4
         error('Not enough input arguments.');
@@ -116,16 +118,8 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     Panel_com('stop_w_trig'); % Stop trigger
     fprintf('.done\n');
     
-    fprintf('\tLoading pattern...\n');
-    Panel_com('set_pattern_id', pattern); % Load pattern onto arena
-    Panel_com('ident_compress_off'); 
-
-    % Coder's note: I do not know what the above command does, but it was
-    % carried over from the previous stepper rig control. If it aint broke,
-    % don't fix it - nxz157, 6/19/2023
-    
     fprintf('\tSetting trigger rate...\n');
-    Panel_com('set_trigger_rate', 1);
+        Panel_com('set_trigger_rate', 1);
 
     % Ensure trigger starts on low first
     fprintf('\tChecking trigger status...\n');
@@ -155,35 +149,52 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     % starts low in order for the first frame to be triggered. The above
     % code ensures that the trigger starts low, and if it doesn't work
     % after 10 seconds, it throws an error. - nxz157, 7/3/2023
-    
-    if ~rigUse(1)
-        fprintf('No function provided for LED Arena.\n')
+
+    fprintf('\tLoading pattern...\n');
+    if strcmp('AllOn', pattern)
+        Panel_com('all_on');
+
+        fprintf('\tSetting mode to blank mode...\n');
+        Panel_com('set_mode', [0 0]);
     else
-        fprintf('\tSetting mode to function mode.');
-        Panel_com('set_mode', [4 4]);
-        fprintf('.');
-        Panel_com('send_gain_bias', [0 0 0 0]);
-        fprintf('.done\n');
-        
-        fprintf('\tParsing arena m-sequence...\n');
-        arenaMSeq = cumsum(funcV);
+        Panel_com('set_pattern_id', pattern); % Load pattern onto arena
 
-        fprintf('\tSending arena function.')
-        for i = 0 : 19
-            j = 1 + i * 50;
-            k = j + 49;
+        Panel_com('ident_compress_off'); 
     
-            Panel_com('send_function', [2 i arenaMSeq(j : k)]); % 2 for Y
-            fprintf('.');
-            pause(0.1);
-        end
-        fprintf('.done\n');
+        % Coder's note: I do not know what the above command does, but it was
+        % carried over from the previous stepper rig control. If it aint broke,
+        % don't fix it - nxz157, 6/19/2023
 
+        if ~rigUse(1)
+            fprintf('No function provided for LED Arena.\n')
+        else
+            fprintf('\tSetting mode to function mode.');
+            Panel_com('set_mode', [4 4]);
+            fprintf('.');
+            Panel_com('send_gain_bias', [0 0 0 0]);
+            fprintf('.done\n');
+
+            fprintf('\tParsing arena m-sequence...\n');
+            arenaMSeq = cumsum(funcV);
+
+            fprintf('\tSending arena function.')
+
+            for i = 0 : 19
+                j = 1 + i * 50;
+                k = j + 49;
+
+                Panel_com('send_function', [2 i arenaMSeq(j : k)]); % 2 for Y
+                fprintf('.');
+                pause(0.1);
+            end
+            fprintf('.done\n');
+        end
+    
         fprintf('\tSetting initial position...\n');
         Panel_com('set_position', [5 48]); % Write first position
-
-        fprintf('Done setting up LED Arena.\n');
     end
+    fprintf('Done setting up LED Arena.\n');
+    
     
     %% Setup Stepper
     fprintf('Setting up Stepper...\n');
@@ -205,7 +216,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
         gain = max(abs(funcS)); % The max should be 1, 2, etc., which specifies the gain
         Stepper_com(stepper, 'set_sequence_gain', gain);
 
-        if rigUse(1) % Only 50Hz available with arena
+        if rigUse(1) % Only 25Hz and 50Hz available with arena
             fprintf('\tParsing stepper trigger m-sequence...\n');
             stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
             
