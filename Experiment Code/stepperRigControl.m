@@ -28,7 +28,6 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 %                       interleaved zeros
 % - v1.4 (7/6/2023): Added verification ability
     
-    clc;
     close all;
 
     %% Check and Fill Arguments
