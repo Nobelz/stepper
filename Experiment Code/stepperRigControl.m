@@ -62,7 +62,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     %% Define Constants
     DAQ_RATE = 10000;
     STEPPER_PORT = 'COM3';
-    
+
     %% Setup DAQ
     fprintf('Setting up DAQ...');
     daqreset; % Reset DAQ
