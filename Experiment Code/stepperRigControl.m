@@ -16,7 +16,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 % Outputs:
 %   - data: the actual data of the DAQ during the trial
 %   - time: the time of experiment data collection
-%   - status: whether data was successfully collected (1) or not (0)
+%   - status: whether data was successf
 %
 % Author: Nobel Zhou (nxz157)
 % Date: 5 July 2023
@@ -123,7 +123,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     fprintf('.done\n');
     
     fprintf('\tSetting trigger rate...\n');
-        Panel_com('set_trigger_rate', 1);
+    Panel_com('set_trigger_rate', 1);
 
     % Ensure trigger starts on low first
     fprintf('\tChecking trigger status...\n');
