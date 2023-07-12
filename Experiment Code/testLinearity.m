@@ -97,6 +97,7 @@ function [data, time, status] = testLinearity()
     fprintf('\tLoading pattern...\n');
     Panel_com('set_pattern_id', STRIPED_PATTERN); % Load pattern onto arena
     Panel_com('ident_compress_off'); 
+    Panel_com('set_mode', [5 5]);
 
     fprintf('\tSetting initial position...\n');
     Panel_com('set_position', [48 48]); % Write first position
@@ -123,10 +124,12 @@ function [data, time, status] = testLinearity()
 
     % Generate stepper data
     fprintf('\tGenerating stepper data...\n');
-    stepperInput = [zeros(1, DAQ_RATE * 0.5) 1 ...
-        zeros(1, DAQ_RATE * 2.1 - 1) 1 zeros(1, DAQ_RATE * 1.9 - 1) 1 ...
-        zeros(1, DAQ_RATE * 0.1 - 1) 1 zeros(1, DAQ_RATE * 1.9 - 1) 2 ...
-        zeros(1, DAQ_RATE * 1.5 - 1)];
+    stepperInput = [zeros(1, DAQ_RATE * 0.5) ones(1, DAQ_RATE * 0.05) ...
+        zeros(1, DAQ_RATE * 2.05) ones(1, DAQ_RATE * 0.05) ...
+        zeros(1, DAQ_RATE * 1.85) ones(1, DAQ_RATE * 0.05) ...
+        zeros(1, DAQ_RATE * 0.05) ones(1, DAQ_RATE * 0.05) ...
+        zeros(1, DAQ_RATE * 1.85) ones(1, DAQ_RATE * 0.05) * 2 ...
+        zeros(1, DAQ_RATE * 1.45)];
     stepperInput = [stepperInput zeros(1, DAQ_RATE) -stepperInput];
     stepperInput = [stepperInput zeros(1, DAQ_RATE * 4) stepperInput];
     stepperInput = stepperInput + 2;
@@ -175,7 +178,8 @@ function [data, time, status] = testLinearity()
     
     while toc < 19 % Wait until 19 seconds have elapsed
     end
-    
+    fprintf('\tSwitching to all on display...\n');
+    Panel_com('stop_w_trig');
     Panel_com('all_on'); % Switch to all on
 
     while d.Running % Wait until DAQ is finished
@@ -191,10 +195,8 @@ function [data, time, status] = testLinearity()
     fprintf('\tStopping Arena...\n');
     Panel_com('stop_w_trig'); % Stop triggering and stop arena
     
-    if rigUse(2)
-        fprintf('\tResetting Stepper...\n');
-        Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
-    end
+    fprintf('\tResetting Stepper...\n');
+    Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
 
     fprintf('\tClearing DAQ...\n');
     clear d % Delete DAQ
