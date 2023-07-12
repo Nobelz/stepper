@@ -13,6 +13,11 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 %   - rate: the rate of the stepper, if using stepper only. The default is
 %       50Hz
 %
+% Outputs:
+%   - data: the actual data of the DAQ during the trial
+%   - time: the time of experiment data collection
+%   - status: whether data was successfully collected (1) or not (0)
+%
 % Author: Nobel Zhou (nxz157)
 % Date: 5 July 2023
 % Version: 1.3
