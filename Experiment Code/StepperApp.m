@@ -3,6 +3,7 @@ classdef StepperApp < matlab.apps.AppBase
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                     matlab.ui.Figure
+        TestLinearityButton          matlab.ui.control.Button
         StartButton                  matlab.ui.control.Button
         ConservedButtonGroup         matlab.ui.container.ButtonGroup
         Conserved2Button             matlab.ui.control.RadioButton
@@ -33,10 +34,12 @@ classdef StepperApp < matlab.apps.AppBase
             reset(app);
             app.ExperimentModeDropDown.Value = 'Select...';
             app.ExperimentModeDropDown.Enable = 'off';
+            app.TestLinearityButton.Enable = 'off';
         end
 
         function enableAll(app)
             app.ExperimentModeDropDown.Enable = 'on';
+            app.TestLinearityButton.Enable = 'on';
             checkExperiment(app);
         end
 
@@ -191,10 +194,21 @@ classdef StepperApp < matlab.apps.AppBase
             haltere = ~app.HalterelessCheckBox.Value;
 
             disableAll(app);
-            while (experimentHandler(flyNum, trial, 'PCF', haltere, ...
-                condition, doubled, delayed, arenaHz, stepperHz))
+            while experimentHandler(flyNum, trial, 'PCF', haltere, ...
+                condition, doubled, delayed, arenaHz, stepperHz)
             end
         
+            enableAll(app);
+        end
+        
+        function TestLinearityButtonPushed(app, event)
+            flyNum = app.FlyNumberSpinner.Value;
+            haltere = ~app.HalterelessCheckBox.Value;
+
+            disableAll(app);
+            while experimentHandler(flyNum, 1, 'PCF', haltere, ...
+                'TestLinearity')
+            end
             enableAll(app);
         end
 
@@ -354,8 +368,15 @@ classdef StepperApp < matlab.apps.AppBase
             app.StartButton = uibutton(app.UIFigure, 'push');
             app.StartButton.ButtonPushedFcn = createCallbackFcn(app, @StartButtonPushed, true);
             app.StartButton.Enable = 'off';
-            app.StartButton.Position = [72 19 237 65];
+            app.StartButton.Position = [44 19 139 65];
             app.StartButton.Text = 'Start';
+
+            % Create TestLinearityButton
+            app.TestLinearityButton = uibutton(app.UIFigure, 'push');
+            app.TestLinearityButton.ButtonPushedFcn = createCallbackFcn(app, @TestLinearityButtonPushed, true);
+            app.TestLinearityButton.Enable = 'on';
+            app.TestLinearityButton.Position = [223 19 139 65];
+            app.TestLinearityButton.Text = 'Test Linearity';
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';

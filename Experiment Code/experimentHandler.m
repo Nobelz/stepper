@@ -64,7 +64,7 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
 
         delayed = 0;
         doubled = 0;
-    else
+    elseif ~strcmp(condition, 'TestLinearity')
         error('Incorrect condition provided.');
     end
 
@@ -112,6 +112,8 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
     
     % Check each condition
     switch (condition)
+        case 'TestLinearity'
+            % Do nothing at the moment
         case 'ArenaOnly'
             if conserved
                 funcV = seq1;
@@ -236,8 +238,13 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
 
 
     %% Collect Data
-    % Pass arguments to stepper rig control
-    [data, time, status] = stepperRigControl(funcV, funcS, pattern, DURATION, stepperRate);
+    if strcmp(condition, 'TestLinearity')
+        % Initiate linearity test
+        [data, time, status] = testLinearity();
+    else
+        % Pass arguments to stepper rig control
+        [data, time, status] = stepperRigControl(funcV, funcS, pattern, DURATION, stepperRate);
+    end
 
     if status == 1
         fprintf('Saving trial...\n');
@@ -255,11 +262,14 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
         exp.treatment = treatment;
         exp.haltere = haltereString(haltere + 1, :);
         exp.condition = condition;
-        exp.funcV = funcV;
-        exp.funcS = funcS;
-        exp.rateV = arenaRate;
-        exp.rateS = stepperRate;
-        exp.pattern = pattern;
+
+        if ~strcmp(condition, 'TestLinearity')
+            exp.funcV = funcV;
+            exp.funcS = funcS;
+            exp.rateV = arenaRate;
+            exp.rateS = stepperRate;
+            exp.pattern = pattern;
+        end
 
         fileName = [treatment '_F' num2str(flyNum) '_T' num2str(flyTrial)...
             '_' haltereString(haltere + 1, :) '_' condition '_' ...

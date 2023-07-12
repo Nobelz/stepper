@@ -14,11 +14,6 @@ function [data, time, status] = testLinearity()
 %
 % VERSION CHANGELOG:
 % - v0.1 (7/12/2023): Initial commit
-    
-    %% Check and Fill Arguments
-    if nargin < 1
-        error('Fly number is required.');
-    end
 
     %% Define Constants
     DAQ_RATE = 10000;
