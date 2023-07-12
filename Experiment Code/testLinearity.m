@@ -183,7 +183,7 @@ function [data, time, status] = testLinearity()
     Panel_com('all_on'); % Switch to all on
 
     while d.Running % Wait until DAQ is finished
-        drawnow;
+        drawnow; % Update running status until finished
     end
 
     fprintf('\tData collection received.\nReading data..');
@@ -195,6 +195,7 @@ function [data, time, status] = testLinearity()
     fprintf('\tStopping Arena...\n');
     Panel_com('stop_w_trig'); % Stop triggering and stop arena
     
+    pause(1);
     fprintf('\tResetting Stepper...\n');
     Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
 
