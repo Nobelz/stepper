@@ -80,7 +80,7 @@ void loop() {
       // available modes: 0 = play sequence immediately, 1 = step one element of sequence every time pin 2 goes high, 2 = play whole sequence after pin 2 goes high.
       Serial.print(command);              //print feedback
     } else if (command == 'V') {          // begin voltage mode
-      beginVoltage(gain);                 // begin voltage mode with desired duration
+      beginVoltage();                     // begin voltage mode
     } else if (command == 'A') {          // begin arena mode: listen to arena output and move accordingly
       while (Serial.available() < 2) {};  //wait for 3 bytes to be available
       len = Serial.read();                // get length of commanded sequence in bytes
@@ -162,7 +162,7 @@ void beginSequence(int len, int rate, byte gain) {
   }
 }
 
-void beginVoltage(byte gain) {
+void beginVoltage() {
   stepper.setSpeed(255);  //temporarily set speed to maximum
   unsigned long prevtime = millis();
   unsigned int val = 0;
@@ -170,24 +170,35 @@ void beginVoltage(byte gain) {
   int8_t lastState = 0;
 
   while (true) {
-    val = analogRead(A1);
-    if (val < 341) {
+    val = analogRead(A2);
+    
+    if (val < 200)
+      curState = -2;
+    else if (val < 400)
       curState = -1;
-    } else if (val < 682) {
+    else if (val < 600)
       curState = 0;
-    } else {
+    else if (val < 800)
       curState = 1;
-    }
+    else
+      curState = 2;
 
-    if (lastState == 0 && curState < 0) {
-      stepper.step(-1 * gain);
+    if (lastState == 0 && curState != 0) {
+      stepper.step(curState);
       digitalWrite(4, HIGH);
-    } else if (lastState == 0 && curState > 0) {
-      stepper.step(1 * gain);
-      digitalWrite(4, HIGH);
-    } else if (lastState != 0 && curState == 0) {
+    } else
       digitalWrite(4, LOW);
-    }
+    
+    // Below is the old voltage mode; above allows for 2 steps in either direction in addition to previous functionality
+    // if (lastState == 0 && curState < 0) {
+    //   stepper.step(-1 * gain);
+    //   digitalWrite(4, HIGH);
+    // } else if (lastState == 0 && curState > 0) {
+    //   stepper.step(1 * gain);
+    //   digitalWrite(4, HIGH);
+    // } else if (lastState != 0 && curState == 0) {
+    //   digitalWrite(4, LOW);
+    // }
 
     lastState = curState;
   }
