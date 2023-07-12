@@ -1,10 +1,7 @@
-function [data, time, status] = testLinearity(flyNum)
+function [data, time, status] = testLinearity()
 % testLinearity.m
 % Tests the linearity of the kernel using the individual stimulus responses
 % as shown in Theobald et al., 2010, Figure 1C.
-%
-% Inputs:
-%   - flyNum: the number of the fly
 %
 % Outputs:
 %   - data: the actual data of the DAQ during the trial
@@ -159,36 +156,36 @@ function [data, time, status] = testLinearity(flyNum)
     % from stripes to all on. Then, the DAQ will continue, with the camera
     % ending 1 second after the DAQ. A shift of +2 is necessary as the
     % voltages need to be mapped to [0 : 4]. - nxz157, 7/12/2023
+
     fprintf('Done setting up Stepper.\n');
-    end
     
     %% Final Preparations
     fprintf('Performing final preparations...\n');
+    fprintf('\tPreloading data...\n');
+    preload(d, stepperInput');
 
     fprintf('\tWaiting for user start signal...\n');
     uiwait(msgbox({'Please arm camera and click ok to continue', ...
-        ['(Required buffer length ' num2str(duration) ' seconds)']}));
+        '(Required buffer length 40 seconds)'}));
     
     fprintf('Starting execution...\n');
     fprintf('\tStarting DAQ operation...\n');
-    start(d, 'Duration', seconds(duration)); % Start DAQ collection/writing and wait for trigger
+    start(d); % Start DAQ collection/writing and wait for trigger
     fprintf('\tWaiting for trigger...\n');
     Panel_com('start_w_trig'); % Send trigger to camera and DAQ
 
     time = datetime('now'); % Record time
-
+    tic;
     fprintf('\tTrigger received. Waiting for completion...\n');
+    
+    while toc < 19 % Wait until 19 seconds have elapsed
+    end
+    
+    Panel_com('all_on'); % Switch to all on
 
-    while d.Running
+    while d.Running % Wait until DAQ is finished
         drawnow;
     end
-
-    % Coder's note: previously, we have used an IsDone to check to see if
-    % the DAQ is done. This was removed in the new DAQ interface, and any
-    % other calls like drawnow or what-not cause an async error. Thus, we
-    % cannot use a listener to call a function. The quick solution to this
-    % is simply to wait until we are sure the DAQ is finished, and then
-    % collect all the data at once. - nxz157, 6/19/2023
 
     fprintf('\tData collection received.\nReading data..');
     data = read(d, 'all'); % Reads all input data
@@ -198,12 +195,7 @@ function [data, time, status] = testLinearity(flyNum)
     fprintf('Performing cleanup...\n');
     fprintf('\tStopping Arena...\n');
     Panel_com('stop_w_trig'); % Stop triggering and stop arena
-
-    % Coder's note: you may notice that the arena and stepper will start up
-    % again and go through their m-sequence. This is normal and irrelevant,
-    % as data has already been done collecting when this happens. - nxz157,
-    % 6/30/2023
-
+    
     if rigUse(2)
         fprintf('\tResetting Stepper...\n');
         Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
@@ -211,6 +203,19 @@ function [data, time, status] = testLinearity(flyNum)
 
     fprintf('\tClearing DAQ...\n');
     clear d % Delete DAQ
+    
+    %% Data Verification
+    fprintf('Verifying data...\n');
+    fprintf('\tVerifying fly flight...\n');
 
+    btn = questdlg('If the fly did not stop flying, please select Yes. The default value is No.', 'Save This Trial?', 'Yes', 'No', 'No');
+    
+    if strcmp(btn, 'Yes')
+        status = 1;
+        fprintf('Successfully collected data!\n');
+    else
+        status = 0;
+        fprintf('Unsuccessful data collection.\n');
+    end
 end
     
