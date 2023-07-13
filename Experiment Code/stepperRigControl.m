@@ -260,6 +260,14 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 
             pause(1);
         else
+            fprintf('\tSetting arena mode...\n');
+            Panel_com('set_mode', [5 5]);
+
+            % Coder's note: the above is necessary as otherwise, the arena
+            % will replay the last stored sequence. We want the sequence to
+            % do something, so if we have it go to a debug mode, that would
+            % suffice. - nxz157, 7/13/2023
+            
             fprintf('\tSetting trigger mode...\n')
             Stepper_com(stepper, 'set_trig_mode', 'start_on_trig');
 
