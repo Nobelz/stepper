@@ -9,11 +9,12 @@ function [data, time, status] = testLinearity()
 %   - status: whether data was successfully collected (1) or not (0)
 %
 % Author: Nobel Zhou (nxz157)
-% Date: 12 July 2023
-% Version: 0.1
+% Date: 13 July 2023
+% Version: 1.0
 %
 % VERSION CHANGELOG:
 % - v0.1 (7/12/2023): Initial commit
+% - v1.0 (7/13/2023): Production ready, added DAQ triggering sequences
 
     %% Define Constants
     DAQ_RATE = 10000;
@@ -164,7 +165,7 @@ function [data, time, status] = testLinearity()
 
     fprintf('\tWaiting for user start signal...\n');
     uiwait(msgbox({'Please arm camera and click ok to continue', ...
-        '(Required buffer length 40 seconds)'}));
+        '(Required buffer length 40 seconds)'}, 'TestLinearity'));
     
     fprintf('Starting execution...\n');
     fprintf('\tStarting DAQ operation...\n');

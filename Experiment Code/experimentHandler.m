@@ -243,7 +243,7 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
         [data, time, status] = testLinearity();
     else
         % Pass arguments to stepper rig control
-        [data, time, status] = stepperRigControl(funcV, funcS, pattern, DURATION, stepperRate);
+        [data, time, status] = stepperRigControl(funcV, funcS, pattern, DURATION, stepperRate, condition);
     end
 
     if status == 1

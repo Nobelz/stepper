@@ -1,4 +1,4 @@
-function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duration, rate)
+function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duration, rate, condition)
 % stepperRigControl.m
 % Rewrite for controlling the stepper and arena rig.
 %
@@ -12,6 +12,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 %   - duration: the length of the experiment
 %   - rate: the rate of the stepper, if using stepper only. The default is
 %       50Hz
+%   - condition: the condition of the trial
 %
 % Outputs:
 %   - data: the actual data of the DAQ during the trial
@@ -19,8 +20,8 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 %   - status: whether data was successf
 %
 % Author: Nobel Zhou (nxz157)
-% Date: 5 July 2023
-% Version: 1.3
+% Date: 13 July 2023
+% Version: 1.5
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/15/2023): Initial commit
@@ -32,6 +33,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 % - v1.3 (7/5/2023): Added ability for stepper/arena to go to 50Hz without
 %                       interleaved zeros
 % - v1.4 (7/6/2023): Added verification ability
+% - v1.5 (7/13/2023): Added condition
     
     close all;
 
@@ -288,7 +290,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 
     fprintf('\tWaiting for user start signal...\n');
     uiwait(msgbox({'Please arm camera and click ok to continue', ...
-        ['(Required buffer length ' num2str(duration) ' seconds)']}));
+        ['(Required buffer length ' num2str(duration) ' seconds)']}, condition));
     
     fprintf('Starting execution...\n');
     fprintf('\tStarting DAQ operation...\n');

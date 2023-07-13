@@ -20,7 +20,8 @@ function expressRun(flyNum)
 
     %% Test Linearity
     fprintf('Testing linearity...\n');
-    uiwait(msgbox({'Please make sure camera is set to 7.000GB storage, then click ok to continue', ...
+    uiwait(msgbox({'Please make sure camera is set to 7.000GB storage,', ...
+        'then click ok to continue', ...
         '(Required buffer length 40 seconds)'}));
 
     while experimentHandler(flyNum, 1, TREATMENT, 1, 'TestLinearity')
