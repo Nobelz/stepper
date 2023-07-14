@@ -20,14 +20,15 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
 %                   trials, this does nothing and the stepper rate is the
 %                   arena rate.
 %
-% Author: Nobel Zhou
-% Date: 30 June 2023
-% Version: 0.2
+% Author: Nobel Zhou, nxz157
+% Date: 14 July 2023
+% Version: 1.0
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/19/2023): Initial commit
 % - v0.2 (6/30/2023): Changed striped pattern from 2 to 1 to account for
 %                       different card being used
+% - v1.0 (7/14/2023): Added testing linearity
     
     %% Define Constants
     DEFAULT_RATE = 50;
