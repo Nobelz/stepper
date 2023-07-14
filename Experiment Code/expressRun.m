@@ -17,6 +17,8 @@ function expressRun(flyNum)
     %% Define Constants
     TREATMENT = 'PCF';
     DEFAULT_RATE = 50;
+    
+    expOrder = randperm(6); % Randomize experiment treatment
 
     %% Test Linearity
     fprintf('Testing linearity...\n');
@@ -29,8 +31,6 @@ function expressRun(flyNum)
     
     uiwait(msgbox({'Please make sure camera is set to 3.750GB storage, then click ok to continue', ...
         '(Required buffer length 20 seconds)'}));
-    
-    expOrder = randperm(6); % Randomize experiment treatment
 
     for j = 1 : 6
         clc;
