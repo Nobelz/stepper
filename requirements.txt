@@ -1,0 +1,2 @@
+pyserial
+panel_com_g2
