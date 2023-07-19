@@ -13,9 +13,11 @@ function StepperDLCValidator()
     %% Define Constants
     SHOW_WINGS = 0;
     DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
-    BODY_COLOR = [253,141,60] ./ 255;
-    HEAD_COLOR = [43,140,190] ./ 255;
+    BODY_COLOR = [253, 141, 60] ./ 255;
+    HEAD_COLOR = [43, 140, 190] ./ 255;
+    EDIT_COLOR = [26, 152, 80] ./ 255;
     DEFAULT_CALC_METHOD = [1 1];
+    COLOR_MAP = hsv(13); % Color map used for points
 
     BODY_NAMES = {'LeftAntMed', 'LeftAntDist', 'RightAntMed', ...
         'RightAntDist', 'LeftWingRoot', 'RightWingRoot', ...
@@ -59,23 +61,19 @@ function StepperDLCValidator()
                 'Please select a different folder.'}, 'No Videos'));
             settingsFile = []; % Reset settings file
         else
-            settingsLoaded = 1;
+            settingsLoaded = 1; % Exit loop condition met
         end
     end
 
     %% Define Variables
     fly = [];
-    markers = [];
-    videoReader = VideoReader(videoNames{lastVideoIndex}); % Load last loaded file
+    updatedFrames = []; % Stores the frame numbers of the frames updated using the validator
+    videoReader = VideoReader(videoNames{lastVideoIndex}); % Load last loaded file, or first file if last loaded doesn't exist 
     videoTimer = timer('Period', .01, 'TimerFcn', @nextFrame, 'ExecutionMode', 'fixedRate'); % Initiate video player on 100 fps
     bodyCalcMethod = DEFAULT_CALC_METHOD(1);
     headCalcMethod = DEFAULT_CALC_METHOD(2);
-    
-    pcols = hsv(13);
-    
+    showPoints = []; % Specifies which indices of BODY_NAMES should be shown in the video
 
-
-showpts = [];
 csv = [];
 Xpts = [];
 Ypts = [];
@@ -93,7 +91,7 @@ if isfile(saveNames{cix})
     Xpts = fly.pts.X;
     Ypts = fly.pts.Y;
     Pval = fly.pts.P;
-    markers = fly.track.frameidx;
+    updatedFrames = fly.track.frameidx;
     bodyCalcMethod = fly.track.bodymethod;
     headCalcMethod = fly.track.headmethod;
 else
@@ -119,23 +117,23 @@ fileslist = uicontrol(c,'Style','listbox','String',displayNames,...
     'Position',[0 0 480 600],'Callback',@buttons,'Value',lastVideoIndex);
 
 vidax = axes(c,'unit','pixel','Position',[480 0 vwidth vheight],'XTick',[],'YTick',[]);
-datax = axes(c,'unit','pixel','Position',[0 0 100 100]);
+dataX = axes(c,'unit','pixel','Position',[0 0 100 100]);
 zoomax = axes(c,'unit','pixel','Position',[0 0 100 100]);
-edlines = plot(datax,nan,nan);
-xlim(datax,[0 numFrames]);
-xticks(datax,[1 500:500:numFrames]);
-datax.XTickLabelRotation = 45;
-ylim(datax,[-180 180]);
-yticks(datax,-180:45:180);
-xlabel(datax,'Frame #');
-hold(datax,'on');
-bodyline = plot(datax,1:numFrames,BodyAng,'--','Color',BODY_COLOR,'LineWidth',2.5);
-headline = plot(datax,1:numFrames,HeadAng,'Color',HEAD_COLOR,'LineWidth',1);
-fline = xline(datax,1,'LineWidth',1.5);
-datax.XGrid = 'on';
-datax.YGrid = 'on';
-hold(datax,'off');
-datax.ButtonDownFcn = @buttons;
+editLines = plot(dataX,nan,nan);
+xlim(dataX,[0 numFrames]);
+xticks(dataX,[1 500:500:numFrames]);
+dataX.XTickLabelRotation = 45;
+ylim(dataX,[-180 180]);
+yticks(dataX,-180:45:180);
+xlabel(dataX,'Frame #');
+hold(dataX,'on');
+bodyline = plot(dataX,1:numFrames,BodyAng,'--','Color',BODY_COLOR,'LineWidth',2.5);
+headline = plot(dataX,1:numFrames,HeadAng,'Color',HEAD_COLOR,'LineWidth',1);
+fline = xline(dataX,1,'LineWidth',1.5);
+dataX.XGrid = 'on';
+dataX.YGrid = 'on';
+hold(dataX,'off');
+dataX.ButtonDownFcn = @buttons;
 
 hold(zoomax,'on')
 bodyzmline = plot(zoomax,1:numFrames,BodyAng,'--','Color',BODY_COLOR,'LineWidth',2.5);
@@ -159,7 +157,7 @@ edpts = {};
 if SHOW_WINGS;uptopt = 13;else;uptopt = 11;end
 for ptix = 1:uptopt
     edpts{end+1} = images.roi.Point(vidax);
-    edpts{end}.Color = pcols(ptix,:);
+    edpts{end}.Color = COLOR_MAP(ptix,:);
     edpts{end}.Label = BODY_NAMES{ptix};
     edpts{end}.LabelVisible = 'hover';
     edpts{end}.Deletable = false;
@@ -242,7 +240,7 @@ deletemarkerbtn = uicontrol(c,'Style','pushbutton','String','Revert Frame to CSV
     'Position',[0 0 1 1],'Callback',@buttons);
 gotomarkerbtn = uicontrol(c,'Style','pushbutton','String','Goto Fixed Frame',...
     'Position',[0 0 1 1],'Callback',@buttons);
-markerlist = uicontrol(c,'Style','popupmenu','String',' ',...
+updatedFramesDropdownMenu = uicontrol(c,'Style','popupmenu','String',' ',...
     'Position',[0 55 200 23]);
 
 nextmarkerbtn = uicontrol(c,'Style','pushbutton','String','V',...
@@ -253,16 +251,16 @@ szch(c);
 c.WindowState='maximized';
 
 if isfile(saveNames{lastVideoIndex})
-    updatemarkers;
+    updateFrames;
 end
 curframe = setFrameIndex(1);
 showframe;
 
     function updatetrackingparams(h,~)
         if SHOW_WINGS
-            showpts = [5,6,12,13];
+            showPoints = [5,6,12,13];
         else
-            showpts = [];
+            showPoints = [];
         end
         mx = find(h==bodybtns);
         if ~isempty(mx)
@@ -295,7 +293,7 @@ showframe;
         headzmline.YData = HeadAng;
         if strcmp(videoTimer.Running,'off')
             for i = 1:uptopt
-                if ismember(i,showpts)
+                if ismember(i,showPoints)
                     edpts{i}.Visible = 'on';
                 else
                     edpts{i}.Visible = 'off';
@@ -334,8 +332,8 @@ showframe;
         headaxline.XData = hpts([1 3]);
         headaxline.YData = hpts([2 4]);
         if strcmp(videoTimer.Running,'on')
-            drpts.XData = xdat(showpts);
-            drpts.YData = ydat(showpts);
+            drpts.XData = xdat(showPoints);
+            drpts.YData = ydat(showPoints);
         else
             for i = 1:uptopt
                 edpts{i}.Position = [xdat(i) ydat(i)];
@@ -357,39 +355,39 @@ showframe;
         Y = Ypts;
         switch bodyCalcMethod
             case 1 %7Pt LR
-                showpts = [showpts 5:11];
+                showPoints = [showPoints 5:11];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 upt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
                 dnt = [mean(X(:,[5,6,10,11]),2) mean(Y(:,[5,6,10,11]),2)];
                 BodyAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 2 %6PT UD
-                showpts = [showpts 5:10];
+                showPoints = [showPoints 5:10];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 upt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
                 dnt = [mean(X(:,[5,6,10]),2) mean(Y(:,[5,6,10]),2)];
                 BodyAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 3 %4Pt LR
-                showpts = [showpts 5:8];
+                showPoints = [showPoints 5:8];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 Lt = [mean(X(:,[5,7]),2) mean(Y(:,[5,7]),2)];
                 Rt = [mean(X(:,[6,8]),2) mean(Y(:,[6,8]),2)];
                 BodyAng = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
             case 4 %4Pt UD
-                showpts = [showpts 5:8];
+                showPoints = [showPoints 5:8];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 upt = [mean(X(:,[7,8]),2) mean(Y(:,[7,8]),2)];
                 dnt = [mean(X(:,[5,6]),2) mean(Y(:,[5,6]),2)];
                 BodyAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 5 %Shoulders
-                showpts = [showpts 7:8];
+                showPoints = [showPoints 7:8];
                 ctr = [mean(X(:,[7,8]),2) mean(Y(:,[7,8]),2)];
                 BodyAng = atan2d(Y(:,8)-Y(:,7),X(:,8)-X(:,7))+90;
             case 6 %WingRoots
-                showpts = [showpts 5:6];
+                showPoints = [showPoints 5:6];
                 ctr = [mean(X(:,[5,6]),2) mean(Y(:,[5,6]),2)];
                 BodyAng = atan2d(Y(:,6)-Y(:,5),X(:,6)-X(:,5))+90;
         end
-        showpts = unique(showpts);
+        showPoints = unique(showPoints);
         BodyPts = [ctr(:,1) + 200*cosd(BodyAng) ctr(:,2) + 200*sind(BodyAng) ctr(:,1) - 200*cosd(BodyAng) ctr(:,2) - 200*sind(BodyAng)];
         BodyAng = BodyAng-BodyAng(1);
         BodyAng = wrapTo180(BodyAng);
@@ -400,39 +398,39 @@ showframe;
         Y = Ypts;
         switch headCalcMethod
             case 1 %Head 7UD
-                showpts = [showpts,1:4,7:9];
+                showPoints = [showPoints,1:4,7:9];
                 ctr = [mean(X(:,[1:4 7:9]),2) mean(Y(:,[1:4 7:9]),2)];
                 upt = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 dnt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
                 HeadAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 2 %Head 6UD
-                showpts = [showpts,1:4,7:8];
+                showPoints = [showPoints,1:4,7:8];
                 ctr = [mean(X(:,[1:4 7:8]),2) mean(Y(:,[1:4 7:8]),2)];
                 upt = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 dnt = [mean(X(:,[7:8]),2) mean(Y(:,[7:8]),2)];
                 HeadAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 3 %Head 4LR
-                showpts = [showpts 1:4];
+                showPoints = [showPoints 1:4];
                 ctr = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 Lt = [mean(X(:,[1,2]),2) mean(Y(:,[1,2]),2)];
                 Rt = [mean(X(:,[3,4]),2) mean(Y(:,[3,4]),2)];
                 HeadAng = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
             case 4 %Head 4UD
-                showpts = [showpts 1:4];
+                showPoints = [showPoints 1:4];
                 ctr = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 upt = [mean(X(:,[2,4]),2) mean(Y(:,[2,4]),2)];
                 dnt = [mean(X(:,[1,3]),2) mean(Y(:,[1,3]),2)];
                 HeadAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 5 %Tips only
-                showpts = [showpts 2,4];
+                showPoints = [showPoints 2,4];
                 ctr = [mean(X(:,[2,4]),2) mean(Y(:,[2,4]),2)];
                 HeadAng = atan2d(Y(:,4)-Y(:,2),X(:,4)-X(:,2))+90;
             case 6 %Roots only
-                showpts = [showpts 1,3];
+                showPoints = [showPoints 1,3];
                 ctr = [mean(X(:,[1,3]),2) mean(Y(:,[1,3]),2)];
                 HeadAng = atan2d(Y(:,3)-Y(:,1),X(:,3)-X(:,1))+90;
         end
-        showpts = unique(showpts);
+        showPoints = unique(showPoints);
         HeadPts = [ctr(:,1) + 30*cosd(HeadAng) ctr(:,2) + 30*sind(HeadAng) ctr(:,1) - 30*cosd(HeadAng) ctr(:,2) - 30*sind(HeadAng)];
         HeadAng = HeadAng-HeadAng(1);
         HeadAng = wrapTo180(HeadAng);
@@ -450,10 +448,10 @@ showframe;
             bodyzmline.YData = BodyAng;
             headline.YData = HeadAng;
             headzmline.YData = HeadAng;
-            mx = find(markers==frameIndex,1);
+            mx = find(updatedFrames==frameIndex,1);
             if isempty(mx)
-                markers = [markers; frameIndex];
-                updatemarkers;
+                updatedFrames = [updatedFrames; frameIndex];
+                updateFrames;
             end
         end
         showframe();
@@ -517,7 +515,7 @@ showframe;
                 else
                     stop(videoTimer);
                     drpts.Visible = 'off';
-                    for i = showpts
+                    for i = showPoints
                         edpts{i}.Visible = 'on';
                     end
                     b.String = '>';
@@ -526,7 +524,7 @@ showframe;
                 if strcmp(videoTimer.Running,'on')
                     stop(videoTimer);
                     drpts.Visible = 'off';
-                    for i = showpts
+                    for i = showPoints
                         edpts{i}.Visible = 'on';
                     end
                     playPauseButton.String = '>';
@@ -562,7 +560,7 @@ showframe;
                 fly.pts.P = Pval;
                 fly.proc.HeadAng = HeadAng;
                 fly.proc.BodyAng = BodyAng;
-                fly.track.frameidx = markers;
+                fly.track.frameidx = updatedFrames;
                 fly.track.bodymethod = bodyCalcMethod;
                 fly.track.headmethod = headCalcMethod;
                 save(fn,'fly');
@@ -584,43 +582,43 @@ showframe;
                 onClose;
                 return
             case deletemarkerbtn
-                if isempty(markers);return;end
-                ix = markerlist.Value;
-                revix = markers(ix);
+                if isempty(updatedFrames);return;end
+                ix = updatedFramesDropdownMenu.Value;
+                revix = updatedFrames(ix);
                 Xpts(revix,:) = csv(revix,2:3:end);
                 Ypts(revix,:) = csv(revix,3:3:end);
                 Pval(revix,:) = csv(revix,4:3:end);
-                markers(ix) = [];
-                updatemarkers;
+                updatedFrames(ix) = [];
+                updateFrames;
                 getheadang;
                 getbodyang;
                 headline.YData = HeadAng;
                 bodyline.YData = BodyAng;
                 if ix>1
-                    markerlist.Value = ix-1;
+                    updatedFramesDropdownMenu.Value = ix-1;
                 end
             case gotomarkerbtn
-                if isempty(markers);return;end
-                curframe = setFrameIndex(markers(markerlist.Value));
+                if isempty(updatedFrames);return;end
+                curframe = setFrameIndex(updatedFrames(updatedFramesDropdownMenu.Value));
             case nextmarkerbtn
-                if isempty(markers);return;end
-                if markerlist.Value==length(markers)
+                if isempty(updatedFrames);return;end
+                if updatedFramesDropdownMenu.Value==length(updatedFrames)
                     ix = 1;
                 else
-                    ix = markerlist.Value+1;
+                    ix = updatedFramesDropdownMenu.Value+1;
                 end
-                markerlist.Value = ix;
-                curframe = setFrameIndex(markers(ix));
+                updatedFramesDropdownMenu.Value = ix;
+                curframe = setFrameIndex(updatedFrames(ix));
             case prevmarkerbtn
-                if isempty(markers);return;end
-                if markerlist.Value==1
-                    ix = length(markers);
+                if isempty(updatedFrames);return;end
+                if updatedFramesDropdownMenu.Value==1
+                    ix = length(updatedFrames);
                 else
-                    ix = markerlist.Value-1;
+                    ix = updatedFramesDropdownMenu.Value-1;
                 end
-                markerlist.Value = ix;
-                curframe = setFrameIndex(markers(ix));
-            case datax
+                updatedFramesDropdownMenu.Value = ix;
+                curframe = setFrameIndex(updatedFrames(ix));
+            case dataX
                 if e.Button==1
                     ix = round(e.IntersectionPoint(1));
                     if ix>numFrames;ix = numFrames;end
@@ -664,11 +662,11 @@ showframe;
         edpts = {};
         for i = 1:uptopt
             edpts{end+1} = images.roi.Point(vidax);
-            edpts{end}.Color = pcols(i,:);
+            edpts{end}.Color = COLOR_MAP(i,:);
             edpts{end}.Label = BODY_NAMES{i};
             edpts{end}.LabelVisible = 'hover';
             edpts{end}.Deletable = false;
-            if ismember(i,showpts)
+            if ismember(i,showPoints)
                 edpts{end}.Visible = 'on';
             else
                 edpts{end}.Visible = 'off';
@@ -683,7 +681,7 @@ showframe;
             Xpts = fly.pts.X;
             Ypts = fly.pts.Y;
             Pval = fly.pts.P;
-            markers = fly.track.frameidx;
+            updatedFrames = fly.track.frameidx;
             bodyCalcMethod = fly.track.bodymethod;
             headCalcMethod = fly.track.headmethod;
         else
@@ -693,11 +691,11 @@ showframe;
         hold(vidax,'off');
         xticks(vidax,[]);
         yticks(vidax,[]);
-        xlim(datax,[0 numFrames]);
-        xticks(datax,[1 500:500:numFrames]);
+        xlim(dataX,[0 numFrames]);
+        xticks(dataX,[1 500:500:numFrames]);
         getheadang;
         getbodyang;
-        hold(datax,'on');
+        hold(dataX,'on');
         bodyline.XData = 1:numFrames;
         bodyline.YData = BodyAng;
         headline.XData = 1:numFrames;
@@ -709,9 +707,9 @@ showframe;
         zoomax.XTick = 1:numFrames;
 %         bodyline = plot(datax,1:numframes,BodyAng,'--','Color',BCOLOR,'LineWidth',1.5);
 %         headline = plot(datax,1:numframes,HeadAng,'Color',HCOLOR,'LineWidth',2.5);
-        hold(datax,'off');
+        hold(dataX,'off');
         updatetrackingparams(bodybtns(bodyCalcMethod));
-        updatemarkers
+        updateFrames
         showframe;
     end
 
@@ -722,39 +720,65 @@ showframe;
         Pval = csv(:,4:3:end);
     end
     
-    %% Update Marker Function
-    function updatemarkers()
-        [markers, six] = sort(markers);
-        tstr = cell(0);
-        if isempty(markers)
-            markerlist.Value = 1;
-            markerlist.String = ' ';
+    %% Update Frames Function
+    % This function updates the revised frames in the dropdown menu and on
+    % the angle graph.
+    function updateFrames()
+        [updatedFrames, sortingIndices] = sort(updatedFrames); % Sort frames in increasing order
+
+        % If there are no updated frames anymore, clear the dropdown menu
+        if isempty(updatedFrames)
+            updatedFramesDropdownMenu.Value = 1;
+            updatedFramesDropdownMenu.String = ' ';
         else
-            for i = 1:length(markers)
-                tstr{end+1} = ['F' num2str(markers(i))];
+            frameStrings = cell(length(updatedFrames)); % Store the names of the frames that were updated
+            
+            % Add each updated frame's name with 'F' prepended to the
+            % dropdown menu
+            for i = 1 : length(updatedFrames)
+                frameStrings{i} = ['F' num2str(updatedFrames(i))];
             end
-            markerlist.String = tstr;
-            markerlist.Value = six(end);
+            updatedFramesDropdownMenu.String = frameStrings; % Set the frames in the dropdown menu
+            updatedFramesDropdownMenu.Value = sortingIndices(end); % Set the selection to be the last updated frame
         end    
         
-        wasrunning = strcmp(videoTimer.Running,'on');
-        if wasrunning;stop(videoTimer);end
-            hold(datax,'on');
-            delete(edlines);
-            if ~isempty(markers)
-                try
-                    edlines = plot(datax,[markers markers]',[-180 180],'--','Color',[26,152,80]./255);
-                catch
-                    disp('!');
-                end
-                drawnow
+        timerRunning = strcmp(videoTimer.Running, 'on'); % Check if the video timer was running before
+        if timerRunning
+            stop(videoTimer); % Stop video timer if it was running
+        end
+
+        % Plot edited lines
+        hold(dataX, 'on');
+
+        % Delete existing edited lines
+        delete(editLines);
+
+        if ~isempty(updatedFrames)
+            try
+                editLines = plot(dataX, [updatedFrames updatedFrames]', [-180 180], '--', 'Color', EDIT_COLOR);
+            catch
+                disp('!');
             end
-            datax.XGrid = 'on';
-            hold(datax,'off');
-        if wasrunning;start(videoTimer);end
+
+            % Coder's note: I do not know why there is a try/catch
+            % here, but I'm not removing it. - nxz157, 7/19/2023
+
+            drawnow; % Update figure
+        end
+
+        dataX.XGrid = 'on';
+        hold(dataX, 'off');
+
+        % Restart timer if it was running before
+        if timerRunning
+            start(videoTimer);
+        end
     end
     
     %% Set Frame Index Function
+    % This function sets the frame index to the specified index, changing
+    % the progress bar, the display, and the video reader to reflect that
+    % change.
     function frame = setFrameIndex(index)
         frameIndex = index; % Set frame index to the new index
         frame = read(videoReader, index); % Read in new index
@@ -828,13 +852,13 @@ showframe;
         dispdir.Position(2) = fileslist.Position(4);
         dispdir.Position(3) = fileslist.Position(3)+100;
         dispdir.Position(4) = 25;
-        datax.Position(1) = vidax.Position(3)+35;
-        datax.Position(2) = 75;
-        datax.Position(3) = h.Position(3)-vidax.Position(3)-35; 
-        datax.Position(4) = h.Position(4)-430;
-        zoomax.Position(1) = datax.Position(1);
-        zoomax.Position(2) = datax.Position(2)+datax.Position(4)+30;
-        zoomax.Position(3) = datax.Position(3);
+        dataX.Position(1) = vidax.Position(3)+35;
+        dataX.Position(2) = 75;
+        dataX.Position(3) = h.Position(3)-vidax.Position(3)-35; 
+        dataX.Position(4) = h.Position(4)-430;
+        zoomax.Position(1) = dataX.Position(1);
+        zoomax.Position(2) = dataX.Position(2)+dataX.Position(4)+30;
+        zoomax.Position(3) = dataX.Position(3);
         zoomax.Position(4) = 200;
         playPauseButton.Position(1) = vidax.Position(3)+5;
         playPauseButton.Position(2) = h.Position(4)-55;
@@ -927,9 +951,9 @@ showframe;
         prevmarkerbtn.Position = nextmarkerbtn.Position;
         prevmarkerbtn.Position(2) = nextmarkerbtn.Position(2)+25;
         
-        markerlist.Position = prevmarkerbtn.Position;
-        markerlist.Position(1) = prevmarkerbtn.Position(1)+33;
-        markerlist.Position(3) = 299;
+        updatedFramesDropdownMenu.Position = prevmarkerbtn.Position;
+        updatedFramesDropdownMenu.Position(1) = prevmarkerbtn.Position(1)+33;
+        updatedFramesDropdownMenu.Position(3) = 299;
 
         gotomarkerbtn.Position = nextmarkerbtn.Position;
         gotomarkerbtn.Position(1) = nextmarkerbtn.Position(1)+33;
