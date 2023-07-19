@@ -73,16 +73,17 @@ function StepperDLCValidator()
     bodyCalcMethod = DEFAULT_CALC_METHOD(1);
     headCalcMethod = DEFAULT_CALC_METHOD(2);
     showPoints = []; % Specifies which indices of BODY_NAMES should be shown in the video
-
-csv = [];
-Xpts = [];
+    frameIndex = 1; % Specifies the current frame index, set at the start of the video in the beginning (frame 1)
+    csv = []; % Stores the csv representation of all body points of the fly
+    
+    Xpts = [];
 Ypts = [];
 Pval = [];
 HeadAng = [];HeadPts = [];
 BodyAng = [];BodyPts = [];
 
 loop = false;
-frameIndex = 1;
+
 cix = lastVideoIndex;
 if isfile(saveNames{cix})
     fly = [];
