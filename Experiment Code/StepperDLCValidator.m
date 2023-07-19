@@ -13,6 +13,14 @@ function StepperDLCValidator()
     %% Define Constants
     SHOW_WINGS = 0;
     DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
+    BODY_COLOR = [253,141,60] ./ 255;
+    HEAD_COLOR = [43,140,190] ./ 255;
+    DEFAULT_CALC_METHOD = [1 1];
+
+    BODY_NAMES = {'LeftAntMed', 'LeftAntDist', 'RightAntMed', ...
+        'RightAntDist', 'LeftWingRoot', 'RightWingRoot', ...
+        'LeftShoulder', 'RightShoulder', 'Neck', 'Waist', 'Abdomen', ...
+        'LeftWingTip', 'RightWingTip'};
     
     %% Load Settings
     % Locate settings file
@@ -25,9 +33,9 @@ function StepperDLCValidator()
         autosave = settings.autosave;
         directory = settings.dir;
 
-        [fnames, dispnames, csvnames, savenames] = getVideoNames(directory);
+        [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
 
-        lastVideoIndex = find(strcmp(fnames, settings.lastfile), 1); % Find the last video open
+        lastVideoIndex = find(strcmp(videoNames, settings.lastfile), 1); % Find the last video open
 
         % If last video cannot be found, just go to the first one
         if isempty(lastVideoIndex)
@@ -36,34 +44,24 @@ function StepperDLCValidator()
     else
         % Have user get the correct directory
         directory = uigetdir('.', 'Select Video Folder');
-        [fnames, dispnames, csvnames, savenames] = getVideoNames(directory);
+        [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
 
         autosave = 0;
         lastVideoIndex = 1; % Start at first video
     end
-
+    
+    %% Define Variables
     fly = [];
     markers = [];
-    vread = VideoReader(fnames{lastVideoIndex});
-    vtimer = timer('Period', .01, 'TimerFcn', @nextframe, 'ExecutionMode', 'fixedRate');
+    videoReader = VideoReader(videoNames{lastVideoIndex});
+    videoTimer = timer('Period', .01, 'TimerFcn', @nextFrame, 'ExecutionMode', 'fixedRate');
+    bodyCalcMethod = DEFAULT_CALC_METHOD(1);
+    headCalcMethod = DEFAULT_CALC_METHOD(2);
+    
     pcols = hsv(13);
-    BCOLOR = [253,141,60]./255;
-    HCOLOR = [43,140,190]./255;
+    
 
-ptnames = {...
-    'LeftAntMed',...
-    'LeftAntDist',...
-    'RightAntMed',...
-    'RightAntDist',...
-    'LeftWingRoot',...
-    'RightWingRoot',...
-    'LeftShoulder',...
-    'RightShoulder',...
-    'Neck',...
-    'Waist',...
-    'Abdomen',...
-    'LeftWingTip',...
-    'RightWingTip'};
+
 showpts = [];
 csv = [];
 Xpts = [];
@@ -71,31 +69,29 @@ Ypts = [];
 Pval = [];
 HeadAng = [];HeadPts = [];
 BodyAng = [];BodyPts = [];
-bodymethod = 1;
-headmethod = 1;
 
 loop = false;
-f = 1;
+frameIndex = 1;
 cix = lastVideoIndex;
-if isfile(savenames{cix})
+if isfile(saveNames{cix})
     fly = [];
-    load(savenames{cix});
+    load(saveNames{cix});
     csv = fly.csv;
     Xpts = fly.pts.X;
     Ypts = fly.pts.Y;
     Pval = fly.pts.P;
     markers = fly.track.frameidx;
-    bodymethod = fly.track.bodymethod;
-    headmethod = fly.track.headmethod;
+    bodyCalcMethod = fly.track.bodymethod;
+    headCalcMethod = fly.track.headmethod;
 else
     loadcsv;
 end
 getheadang;
 getbodyang;
-numframes = vread.NumFrames;
-curframe = setframeix(1);
-vwidth = vread.Width;
-vheight = vread.Height;
+numFrames = videoReader.NumFrames;
+curframe = setFrameIndex(1);
+vwidth = videoReader.Width;
+vheight = videoReader.Height;
 hyp = sqrt(vwidth^2 + vheight^2);
 vwidth = round(768*(vwidth/vheight));
 vheight = 768;
@@ -106,22 +102,22 @@ c = figure('Name','Stepper DLC Validator','NumberTitle','off',...
     'MenuBar','none','Position',[100 100 1280 800],...
     'CloseRequestFcn',@onClose,'SizeChangedFcn',@szch);
 
-fileslist = uicontrol(c,'Style','listbox','String',dispnames,...
+fileslist = uicontrol(c,'Style','listbox','String',displayNames,...
     'Position',[0 0 480 600],'Callback',@buttons,'Value',lastVideoIndex);
 
 vidax = axes(c,'unit','pixel','Position',[480 0 vwidth vheight],'XTick',[],'YTick',[]);
 datax = axes(c,'unit','pixel','Position',[0 0 100 100]);
 zoomax = axes(c,'unit','pixel','Position',[0 0 100 100]);
 edlines = plot(datax,nan,nan);
-xlim(datax,[0 numframes]);
-xticks(datax,[1 500:500:numframes]);
+xlim(datax,[0 numFrames]);
+xticks(datax,[1 500:500:numFrames]);
 datax.XTickLabelRotation = 45;
 ylim(datax,[-180 180]);
 yticks(datax,-180:45:180);
 xlabel(datax,'Frame #');
 hold(datax,'on');
-bodyline = plot(datax,1:numframes,BodyAng,'--','Color',BCOLOR,'LineWidth',2.5);
-headline = plot(datax,1:numframes,HeadAng,'Color',HCOLOR,'LineWidth',1);
+bodyline = plot(datax,1:numFrames,BodyAng,'--','Color',BODY_COLOR,'LineWidth',2.5);
+headline = plot(datax,1:numFrames,HeadAng,'Color',HEAD_COLOR,'LineWidth',1);
 fline = xline(datax,1,'LineWidth',1.5);
 datax.XGrid = 'on';
 datax.YGrid = 'on';
@@ -129,18 +125,18 @@ hold(datax,'off');
 datax.ButtonDownFcn = @buttons;
 
 hold(zoomax,'on')
-bodyzmline = plot(zoomax,1:numframes,BodyAng,'--','Color',BCOLOR,'LineWidth',2.5);
-headzmline = plot(zoomax,1:numframes,HeadAng,'Color',HCOLOR,'LineWidth',1);
+bodyzmline = plot(zoomax,1:numFrames,BodyAng,'--','Color',BODY_COLOR,'LineWidth',2.5);
+headzmline = plot(zoomax,1:numFrames,HeadAng,'Color',HEAD_COLOR,'LineWidth',1);
 zmfline = xline(zoomax,1,'LineWidth',1);
 zoomax.XGrid = 'on';
 zoomax.YGrid = 'on';
-zoomax.XTick = 1:numframes;
+zoomax.XTick = 1:numFrames;
 hold(zoomax,'off');
 
 im = image(vidax,curframe);
 hold(vidax,'on');
-bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BCOLOR,'LineWidth',2);
-headaxline = plot(vidax,[nan nan],[nan nan],'Color',HCOLOR,'LineWidth',2);
+bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',2);
+headaxline = plot(vidax,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2);
 if SHOW_WINGS
     wingLline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
     wingRline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
@@ -151,7 +147,7 @@ if SHOW_WINGS;uptopt = 13;else;uptopt = 11;end
 for ptix = 1:uptopt
     edpts{end+1} = images.roi.Point(vidax);
     edpts{end}.Color = pcols(ptix,:);
-    edpts{end}.Label = ptnames{ptix};
+    edpts{end}.Label = BODY_NAMES{ptix};
     edpts{end}.LabelVisible = 'hover';
     edpts{end}.Deletable = false;
     addlistener(edpts{end},'MovingROI',@eventcb);
@@ -165,18 +161,18 @@ dispdir = uicontrol(c,'Style', 'edit','ToolTip',directory,...
     'String',directory,'ButtonDownFcn',@buttons,...
     'Position', [0 0 480 40],'Enable','off');
 
-playpause = uicontrol(c,'Style','pushbutton','String','>',...
+playPauseButton = uicontrol(c,'Style','pushbutton','String','>',...
     'Position',[0 143 48 25],'Callback',@buttons,'FontSize',20);
 
-stopbutton = uicontrol(c,'Style','pushbutton','String',string(char(11036)),...
+stopButton = uicontrol(c,'Style','pushbutton','String',string(char(11036)),...
     'Position',[0 143 48 25],'Callback',@buttons,'FontSize',20);
 
-dispframe = uicontrol(c,'Style', 'edit',... 
-    'String',['Frame 1 of ' num2str(numframes)],'ButtonDownFcn',@buttons,...
+frameDisplay = uicontrol(c,'Style', 'edit',... 
+    'String',['Frame 1 of ' num2str(numFrames)],'ButtonDownFcn',@buttons,...
     'Position', [52 143 428 25],'Enable','off');
 
-progress = uicontrol(c,'Style','slider', 'Min',1,'Max',numframes,'Value',1,...
-    'SliderStep',[1/(numframes-1) 1/(numframes-1)],...
+progressBar = uicontrol(c,'Style','slider', 'Min',1,'Max',numFrames,'Value',1,...
+    'SliderStep',[1/(numFrames-1) 1/(numFrames-1)],...
     'Position',[0 118 480 25],'Callback',@buttons);
 
 nextfilebtn = uicontrol(c,'Style','pushbutton','String','V',...
@@ -227,7 +223,7 @@ Head2Rbtn = uicontrol(c,'Style','pushbutton','String','Roots',...
     'Position',[0 0 1 1],'Callback',@updatetrackingparams);
 headbtns = [Head7UDbtn,Head6UDbtn,Head4LRbtn,Head4UDbtn,Head2Tbtn,Head2Rbtn];
 
-updatetrackingparams(headbtns(headmethod));
+updatetrackingparams(headbtns(headCalcMethod));
         
 deletemarkerbtn = uicontrol(c,'Style','pushbutton','String','Revert Frame to CSV',...
     'Position',[0 0 1 1],'Callback',@buttons);
@@ -243,10 +239,10 @@ prevmarkerbtn = uicontrol(c,'Style','pushbutton','String',string(char(923)),...
 szch(c);
 c.WindowState='maximized';
 
-if isfile(savenames{lastVideoIndex})
+if isfile(saveNames{lastVideoIndex})
     updatemarkers;
 end
-curframe = setframeix(1);
+curframe = setFrameIndex(1);
 showframe;
 
     function updatetrackingparams(h,~)
@@ -257,10 +253,10 @@ showframe;
         end
         mx = find(h==bodybtns);
         if ~isempty(mx)
-            bodymethod = mx;
+            bodyCalcMethod = mx;
         end
         for i = 1:6
-            if i==bodymethod
+            if i==bodyCalcMethod
                 bodybtns(i).Enable = 'off';
             else
                 bodybtns(i).Enable = 'on';
@@ -272,10 +268,10 @@ showframe;
         
         mx = find(h==headbtns);
         if ~isempty(mx)
-            headmethod = mx;
+            headCalcMethod = mx;
         end
         for i = 1:4
-            if i==headmethod
+            if i==headCalcMethod
                 headbtns(i).Enable = 'off';
             else
                 headbtns(i).Enable = 'on';
@@ -284,7 +280,7 @@ showframe;
         getheadang()
         headline.YData = HeadAng;
         headzmline.YData = HeadAng;
-        if strcmp(vtimer.Running,'off')
+        if strcmp(videoTimer.Running,'off')
             for i = 1:uptopt
                 if ismember(i,showpts)
                     edpts{i}.Visible = 'on';
@@ -296,34 +292,35 @@ showframe;
         end
     end
 
-    function nextframe(~,~)
-        if (f+1)>numframes
+    %% Next Frame Function
+    function nextFrame(~, ~)
+        if (frameIndex + 1) > numFrames
             if loop
-                curframe = setframeix(1);
+                curframe = setFrameIndex(1);
             else
-                stop(vtimer);
-                playpause.String = '>';
+                stop(videoTimer);
+                playPauseButton.String = '>';
             end
         else
-            curframe = setframeix(f+1);
+            curframe = setFrameIndex(frameIndex+1);
         end
         showframe();
     end
 
     function showframe()
         im.CData = curframe;
-        xdat = Xpts(f,:);
-        ydat = Ypts(f,:);
-        badix = Pval(f,:)<.90;
+        xdat = Xpts(frameIndex,:);
+        ydat = Ypts(frameIndex,:);
+        badix = Pval(frameIndex,:)<.90;
         
-        bpts = BodyPts(f,:);
+        bpts = BodyPts(frameIndex,:);
         bodyaxline.XData = bpts([1 3]);
         bodyaxline.YData = bpts([2 4]);
         
-        hpts = HeadPts(f,:);
+        hpts = HeadPts(frameIndex,:);
         headaxline.XData = hpts([1 3]);
         headaxline.YData = hpts([2 4]);
-        if strcmp(vtimer.Running,'on')
+        if strcmp(videoTimer.Running,'on')
             drpts.XData = xdat(showpts);
             drpts.YData = ydat(showpts);
         else
@@ -338,14 +335,14 @@ showframe;
             wingRline.XData = xdat([6 13]);wingRline.YData = ydat([6 13]);
         end
         
-        zoomax.XLim = [f-10 f+10];
+        zoomax.XLim = [frameIndex-10 frameIndex+10];
         drawnow limitrate;
     end
 
     function getbodyang()
         X = Xpts;
         Y = Ypts;
-        switch bodymethod
+        switch bodyCalcMethod
             case 1 %7Pt LR
                 showpts = [showpts 5:11];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
@@ -388,7 +385,7 @@ showframe;
     function getheadang()
         X = Xpts;
         Y = Ypts;
-        switch headmethod
+        switch headCalcMethod
             case 1 %Head 7UD
                 showpts = [showpts,1:4,7:9];
                 ctr = [mean(X(:,[1:4 7:9]),2) mean(Y(:,[1:4 7:9]),2)];
@@ -429,10 +426,10 @@ showframe;
     end
 
     function eventcb(h,e)
-        pix = find(strcmp(ptnames,h.Label));
-        Xpts(f,pix) =  h.Position(1);
-        Ypts(f,pix) =  h.Position(2);
-        Pval(f,pix) = inf;%will still be higher than any cutoff but also unambiguously an edited point
+        pix = find(strcmp(BODY_NAMES,h.Label));
+        Xpts(frameIndex,pix) =  h.Position(1);
+        Ypts(frameIndex,pix) =  h.Position(2);
+        Pval(frameIndex,pix) = inf;%will still be higher than any cutoff but also unambiguously an edited point
         getbodyang();
         getheadang();
         if strcmp(e.EventName,'ROIMoved')
@@ -440,9 +437,9 @@ showframe;
             bodyzmline.YData = BodyAng;
             headline.YData = HeadAng;
             headzmline.YData = HeadAng;
-            mx = find(markers==f,1);
+            mx = find(markers==frameIndex,1);
             if isempty(mx)
-                markers = [markers; f];
+                markers = [markers; frameIndex];
                 updatemarkers;
             end
         end
@@ -472,7 +469,7 @@ showframe;
                 end
                 loadvid(b.Value);
             case nextfilebtn
-                if fileslist.Value~=length(fnames)
+                if fileslist.Value~=length(videoNames)
                     if autosavecheck.Value == 1
                         buttons(savebutton,[]);
                     end
@@ -487,55 +484,55 @@ showframe;
                     fileslist.Value = fileslist.Value-1;    
                     loadvid(fileslist.Value);
                 end
-            case progress
+            case progressBar
 %                 b.Value = min([numframes,round(b.Value)]);
                 ix = round(b.Value);
-                if ix>numframes;ix = numframes;end
+                if ix>numFrames;ix = numFrames;end
                 if ix<1; ix = 1;end
-                curframe = setframeix(ix);
-            case playpause
+                curframe = setFrameIndex(ix);
+            case playPauseButton
                 if strcmp(b.String,'>')
-                    if f == numframes
-                        curframe = setframeix(1);
+                    if frameIndex == numFrames
+                        curframe = setFrameIndex(1);
                     end
                     b.String = string(char(449));
                     drpts.Visible = 'on';
                     for i = 1:uptopt
                         edpts{i}.Visible = 'off';
                     end
-                    start(vtimer);
+                    start(videoTimer);
                 else
-                    stop(vtimer);
+                    stop(videoTimer);
                     drpts.Visible = 'off';
                     for i = showpts
                         edpts{i}.Visible = 'on';
                     end
                     b.String = '>';
                 end
-            case stopbutton
-                if strcmp(vtimer.Running,'on')
-                    stop(vtimer);
+            case stopButton
+                if strcmp(videoTimer.Running,'on')
+                    stop(videoTimer);
                     drpts.Visible = 'off';
                     for i = showpts
                         edpts{i}.Visible = 'on';
                     end
-                    playpause.String = '>';
+                    playPauseButton.String = '>';
                 end
-                curframe = setframeix(1);
+                curframe = setFrameIndex(1);
             case nextframebtn
-                if f<numframes && strcmp(vtimer.Running,'off')
-                    curframe = setframeix(f+1);
+                if frameIndex<numFrames && strcmp(videoTimer.Running,'off')
+                    curframe = setFrameIndex(frameIndex+1);
                 end
             case prevframebtn
-                if f>1 && strcmp(vtimer.Running,'off')
-                    curframe = setframeix(f-1);
+                if frameIndex>1 && strcmp(videoTimer.Running,'off')
+                    curframe = setFrameIndex(frameIndex-1);
                 end
-            case dispframe
-                value = inputdlg('Pick Frame:','',[1,30],{num2str(f)});
+            case frameDisplay
+                value = inputdlg('Pick Frame:','',[1,30],{num2str(frameIndex)});
                 if ~isempty(value) && all(isstrprop(strip(value{1}),'digit'))
                     value = str2num(value{1});
-                    if value>0 && value<= numframes
-                        curframe=setframeix(value);
+                    if value>0 && value<= numFrames
+                        curframe=setFrameIndex(value);
                     else
                         return
                     end
@@ -544,7 +541,7 @@ showframe;
                 end            
             case savebutton
 %                 assignin('base','controlpoints',outstruct);
-                fn = savenames{cix};
+                fn = saveNames{cix};
                 fly = struct;
                 fly.csv = csv;
                 fly.pts.X = Xpts;
@@ -553,22 +550,22 @@ showframe;
                 fly.proc.HeadAng = HeadAng;
                 fly.proc.BodyAng = BodyAng;
                 fly.track.frameidx = markers;
-                fly.track.bodymethod = bodymethod;
-                fly.track.headmethod = headmethod;
+                fly.track.bodymethod = bodyCalcMethod;
+                fly.track.headmethod = headCalcMethod;
                 save(fn,'fly');
-                if ~strcmp(dispnames{cix}(1),'*')
-                    dispnames{cix} = ['*' dispnames{cix}];
-                    fileslist.String= dispnames;
+                if ~strcmp(displayNames{cix}(1),'*')
+                    displayNames{cix} = ['*' displayNames{cix}];
+                    fileslist.String= displayNames;
                 end
                 return
             case deletebutton
-                fn = savenames{fileslist.Value};
+                fn = saveNames{fileslist.Value};
                 if isfile(fn)                    
                     delete(fn)
                 end
-                if strcmp(dispnames{fileslist.Value}(1),'*')
-                    dispnames{fileslist.Value} = dispnames{fileslist.Value}(2:end);
-                    fileslist.String= dispnames;
+                if strcmp(displayNames{fileslist.Value}(1),'*')
+                    displayNames{fileslist.Value} = displayNames{fileslist.Value}(2:end);
+                    fileslist.String= displayNames;
                 end
             case quitbutton
                 onClose;
@@ -591,7 +588,7 @@ showframe;
                 end
             case gotomarkerbtn
                 if isempty(markers);return;end
-                curframe = setframeix(markers(markerlist.Value));
+                curframe = setFrameIndex(markers(markerlist.Value));
             case nextmarkerbtn
                 if isempty(markers);return;end
                 if markerlist.Value==length(markers)
@@ -600,7 +597,7 @@ showframe;
                     ix = markerlist.Value+1;
                 end
                 markerlist.Value = ix;
-                curframe = setframeix(markers(ix));
+                curframe = setFrameIndex(markers(ix));
             case prevmarkerbtn
                 if isempty(markers);return;end
                 if markerlist.Value==1
@@ -609,43 +606,43 @@ showframe;
                     ix = markerlist.Value-1;
                 end
                 markerlist.Value = ix;
-                curframe = setframeix(markers(ix));
+                curframe = setFrameIndex(markers(ix));
             case datax
                 if e.Button==1
                     ix = round(e.IntersectionPoint(1));
-                    if ix>numframes;ix = numframes;end
+                    if ix>numFrames;ix = numFrames;end
                     if ix<1; ix = 1;end
-                    curframe = setframeix(ix);
+                    curframe = setFrameIndex(ix);
                 end
             otherwise
                 disp('!');
         end
-        if strcmp(vtimer.Running,'off')
+        if strcmp(videoTimer.Running,'off')
             showframe;
         end
     end
 
     function loadvid(ix)
-        if strcmp(vtimer.Running,'on')
-            stop(vtimer);
-            playpause.String = '>';
+        if strcmp(videoTimer.Running,'on')
+            stop(videoTimer);
+            playPauseButton.String = '>';
         end        
         cix = ix;
-        vread = VideoReader(fnames{ix});
-        hyp = sqrt(vread.Width^2 + vread.Height^2);
-        numframes = vread.NumFrames;
-        progress.Value = 1;
-        progress.SliderStep = [1/(numframes-1) 1/(numframes-1)];
-        progress.Max = numframes;
-        curframe=setframeix(1);
+        videoReader = VideoReader(videoNames{ix});
+        hyp = sqrt(videoReader.Width^2 + videoReader.Height^2);
+        numFrames = videoReader.NumFrames;
+        progressBar.Value = 1;
+        progressBar.SliderStep = [1/(numFrames-1) 1/(numFrames-1)];
+        progressBar.Max = numFrames;
+        curframe=setFrameIndex(1);
         im = image(vidax,curframe);
         hold(vidax,'on');
         clear('bodyaxline');
         clear('headaxline');
         clear('drpts');
         clear('edpts');
-        bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BCOLOR,'LineWidth',1.5);
-        headaxline = plot(vidax,[nan nan],[nan nan],'Color',HCOLOR,'LineWidth',2.5);
+        bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',1.5);
+        headaxline = plot(vidax,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2.5);
         if SHOW_WINGS
             wingLline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
             wingRline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
@@ -655,7 +652,7 @@ showframe;
         for i = 1:uptopt
             edpts{end+1} = images.roi.Point(vidax);
             edpts{end}.Color = pcols(i,:);
-            edpts{end}.Label = ptnames{i};
+            edpts{end}.Label = BODY_NAMES{i};
             edpts{end}.LabelVisible = 'hover';
             edpts{end}.Deletable = false;
             if ismember(i,showpts)
@@ -666,16 +663,16 @@ showframe;
             addlistener(edpts{end},'MovingROI',@eventcb);
             addlistener(edpts{end},'ROIMoved',@eventcb);
         end
-        if isfile(savenames{ix})
+        if isfile(saveNames{ix})
             fly = [];
-            load(savenames{ix});
+            load(saveNames{ix});
             csv = fly.csv;
             Xpts = fly.pts.X;
             Ypts = fly.pts.Y;
             Pval = fly.pts.P;
             markers = fly.track.frameidx;
-            bodymethod = fly.track.bodymethod;
-            headmethod = fly.track.headmethod;
+            bodyCalcMethod = fly.track.bodymethod;
+            headCalcMethod = fly.track.headmethod;
         else
             loadcsv;
         end
@@ -683,30 +680,30 @@ showframe;
         hold(vidax,'off');
         xticks(vidax,[]);
         yticks(vidax,[]);
-        xlim(datax,[0 numframes]);
-        xticks(datax,[1 500:500:numframes]);
+        xlim(datax,[0 numFrames]);
+        xticks(datax,[1 500:500:numFrames]);
         getheadang;
         getbodyang;
         hold(datax,'on');
-        bodyline.XData = 1:numframes;
+        bodyline.XData = 1:numFrames;
         bodyline.YData = BodyAng;
-        headline.XData = 1:numframes;
+        headline.XData = 1:numFrames;
         headline.YData = HeadAng;
-        bodyzmline.XData = 1:numframes;
+        bodyzmline.XData = 1:numFrames;
         bodyzmline.YData = BodyAng;
-        headzmline.XData = 1:numframes;
+        headzmline.XData = 1:numFrames;
         headzmline.YData = HeadAng;
-        zoomax.XTick = 1:numframes;
+        zoomax.XTick = 1:numFrames;
 %         bodyline = plot(datax,1:numframes,BodyAng,'--','Color',BCOLOR,'LineWidth',1.5);
 %         headline = plot(datax,1:numframes,HeadAng,'Color',HCOLOR,'LineWidth',2.5);
         hold(datax,'off');
-        updatetrackingparams(bodybtns(bodymethod));
+        updatetrackingparams(bodybtns(bodyCalcMethod));
         updatemarkers
         showframe;
     end
 
     function loadcsv()
-        csv = readmatrix(csvnames{cix},'Range',4);
+        csv = readmatrix(csvNames{cix},'Range',4);
         Xpts = csv(:,2:3:end);
         Ypts = csv(:,3:3:end);
         Pval = csv(:,4:3:end);
@@ -726,8 +723,8 @@ showframe;
             markerlist.Value = six(end);
         end    
         
-        wasrunning = strcmp(vtimer.Running,'on');
-        if wasrunning;stop(vtimer);end
+        wasrunning = strcmp(videoTimer.Running,'on');
+        if wasrunning;stop(videoTimer);end
             hold(datax,'on');
             delete(edlines);
             if ~isempty(markers)
@@ -740,17 +737,17 @@ showframe;
             end
             datax.XGrid = 'on';
             hold(datax,'off');
-        if wasrunning;start(vtimer);end
+        if wasrunning;start(videoTimer);end
     end
-
-    function frame = setframeix(ix)
-        f = ix;
-%         [~,f]=min(abs(vread.CurrentTime-timeix));
-        frame = read(vread,f);
-        progress.Value = f;
-        dispframe.String = ['Frame ' num2str(f) ' of ' num2str(numframes)];
-        fline.Value = f;
-        zmfline.Value = f;
+    
+    %% Set Frame Index Function
+    function frame = setFrameIndex(index)
+        frameIndex = index; % Set frame index to the new index
+        frame = read(videoReader, index); % Read in new index
+        progressBar.Value = index;
+        frameDisplay.String = ['Frame ' num2str(index) ' of ' num2str(numFrames)];
+        fline.Value = index;
+        zmfline.Value = index;
     end
 
     %% Get Video Names Function
@@ -760,7 +757,8 @@ showframe;
         dlcFiles = {};
         displayNames = {};
         procFiles = {};
-
+    
+        % Loop through each tracking file
         for i = 1 : length(trackingFiles)
             videoPrefix = strsplit(trackingFiles(i).name, 'DLC_resnet');
             videoFile = fullfile(trackingFiles(i).folder, [videoPrefix{1} '.avi']);
@@ -821,24 +819,24 @@ showframe;
         zoomax.Position(2) = datax.Position(2)+datax.Position(4)+30;
         zoomax.Position(3) = datax.Position(3);
         zoomax.Position(4) = 200;
-        playpause.Position(1) = vidax.Position(3)+5;
-        playpause.Position(2) = h.Position(4)-55;
-        playpause.Position(3) = 50;
-        playpause.Position(4) = 50;
-        stopbutton.Position = playpause.Position;
-        stopbutton.Position(1) = stopbutton.Position(1)+50;
-        dispframe.Position(1) = stopbutton.Position(1)+stopbutton.Position(3)+7;
-        dispframe.Position(2) = h.Position(4)-30;
+        playPauseButton.Position(1) = vidax.Position(3)+5;
+        playPauseButton.Position(2) = h.Position(4)-55;
+        playPauseButton.Position(3) = 50;
+        playPauseButton.Position(4) = 50;
+        stopButton.Position = playPauseButton.Position;
+        stopButton.Position(1) = stopButton.Position(1)+50;
+        frameDisplay.Position(1) = stopButton.Position(1)+stopButton.Position(3)+7;
+        frameDisplay.Position(2) = h.Position(4)-30;
 %         dispframe.Position(3) = 300;
-        dispframe.Position(3) = h.Position(3)-dispframe.Position(1)-7;
-        dispframe.Position(4) = 25;
-        progress.Position(1) = stopbutton.Position(1)+stopbutton.Position(3)+7;
-        progress.Position(2) = h.Position(4)-55;
+        frameDisplay.Position(3) = h.Position(3)-frameDisplay.Position(1)-7;
+        frameDisplay.Position(4) = 25;
+        progressBar.Position(1) = stopButton.Position(1)+stopButton.Position(3)+7;
+        progressBar.Position(2) = h.Position(4)-55;
 %         progress.Position(3) = 300;
-        progress.Position(3) = h.Position(3)-progress.Position(1)-7;
-        progress.Position(4) = 25;
+        progressBar.Position(3) = h.Position(3)-progressBar.Position(1)-7;
+        progressBar.Position(4) = 25;
         
-        prevframebtn.Position = playpause.Position;
+        prevframebtn.Position = playPauseButton.Position;
         prevframebtn.Position(2) = prevframebtn.Position(2)-60;
         nextframebtn.Position = prevframebtn.Position;
         nextframebtn.Position(1) = nextframebtn.Position(1)+50;
@@ -922,10 +920,11 @@ showframe;
         deletemarkerbtn.Position = gotomarkerbtn.Position;
         deletemarkerbtn.Position(1) = gotomarkerbtn.Position(1)+150;
     end
-
+    
+    %% Closing Function
     % Coder's note: the below function is run whenever a user attempts to
     % close the figure. A confirmation is given, and then the settings are
-    % saved for next time.
+    % saved for next time. - nxz157, 7/18/2023
     function onClose(~, ~)
         % Display confirmation message
         confirm = questdlg('Quit?', '', 'Yes', 'No', 'No');
@@ -941,13 +940,13 @@ showframe;
         % Save settings file
         settings = struct();
         settings.autosave = autosavecheck.Value;
-        settings.lastfile = fnames{fileslist.Value};
+        settings.lastfile = videoNames{fileslist.Value};
         settings.dir = directory;
         
         % Save into stepperdlcvalidator.set
         save(settingsFile, 'settings');
 
-        stop(vtimer); % Stops frame succession if it was running
+        stop(videoTimer); % Stops frame succession if it was running
         drawnow; % Update figure
         closereq; % Close figure
     end
