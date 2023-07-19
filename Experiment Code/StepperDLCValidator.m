@@ -12,6 +12,7 @@ function StepperDLCValidator()
 
     %% Define Constants
     SHOW_WINGS = 0;
+    DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
     
     %% Load Settings
     % Locate settings file
@@ -24,7 +25,7 @@ function StepperDLCValidator()
         autosave = settings.autosave;
         directory = settings.dir;
 
-        [fnames, dispnames, csvnames, savenames] = getvideonames(directory);
+        [fnames, dispnames, csvnames, savenames] = getVideoNames(directory);
 
         lastVideoIndex = find(strcmp(fnames, settings.lastfile), 1); % Find the last video open
 
@@ -35,20 +36,19 @@ function StepperDLCValidator()
     else
         % Have user get the correct directory
         directory = uigetdir('.', 'Select Video Folder');
-        [fnames, dispnames, csvnames, savenames] = getvideonames(directory);
+        [fnames, dispnames, csvnames, savenames] = getVideoNames(directory);
 
         autosave = 0;
         lastVideoIndex = 1; % Start at first video
     end
 
-       
-fly = [];
-markers = [];
-vread = VideoReader(fnames{lastVideoIndex});
-vtimer = timer('Period', .01, 'TimerFcn', @nextframe, 'ExecutionMode', 'fixedRate');
-pcols = hsv(13);
-BCOLOR = [253,141,60]./255;
-HCOLOR = [43,140,190]./255;
+    fly = [];
+    markers = [];
+    vread = VideoReader(fnames{lastVideoIndex});
+    vtimer = timer('Period', .01, 'TimerFcn', @nextframe, 'ExecutionMode', 'fixedRate');
+    pcols = hsv(13);
+    BCOLOR = [253,141,60]./255;
+    HCOLOR = [43,140,190]./255;
 
 ptnames = {...
     'LeftAntMed',...
@@ -753,22 +753,29 @@ showframe;
         zmfline.Value = f;
     end
 
-    function [fn, dn, cn, sn] = getvideonames(p)
-        ft = dir([p filesep '**\*DLC_resnet*.csv']);
-        fn = {};
-        cn = {};
-        dn = {};
-        sn = {};
-        for i = 1:length(ft)
-            tcn = fullfile(ft(i).folder,ft(i).name);
-            tfn = strsplit(ft(i).name,'DLC_resnet');
-            tfn = fullfile(ft(i).folder,[tfn{1} '.avi']);
-            if ~isfile(tfn);continue;end
-            fn{end+1}= tfn;
-            cn{end+1} = tcn;
-            sn{end+1} = [fullfile(ft(i).folder,ft(i).name(1:end-4)) '_PROC.mat'];
-            dn{end+1} = ft(i).name(1:end-4);
-            if isfile(sn{end}); dn{end} = ['*' dn{end}];end
+    %% Get Video Names Function
+    function [videoFiles, displayNames, dlcFiles, procFiles] = getVideoNames(directory)
+        trackingFiles = dir([directory filesep '**\*DLC_resnet*.csv']);
+        videoFiles = {};
+        dlcFiles = {};
+        displayNames = {};
+        procFiles = {};
+
+        for i = 1 : length(trackingFiles)
+            videoPrefix = strsplit(trackingFiles(i).name, 'DLC_resnet');
+            videoFile = fullfile(trackingFiles(i).folder, [videoPrefix{1} '.avi']);
+            
+            % If file exists, add to the arrays
+            if isfile(videoFile)
+                videoFiles{end + 1} = videoFile;
+                dlcFiles{end + 1} = fullfile(trackingFiles(i).folder, trackingFiles(i).name);
+                procFiles{end + 1} = [fullfile(trackingFiles(i).folder, trackingFiles(i).name(1 : end - 4)) '_PROC.mat']; % Remove the '.avi' from the file name
+                displayNames{end + 1} = trackingFiles(i).name(1 : end - 4);
+                
+                if isfile(procFiles{end}) 
+                    displayNames{end} = ['*' displayNames{end}]; % Indicates that a proc file already exists for the video
+                end
+            end
         end
     end
 
