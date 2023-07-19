@@ -1,34 +1,60 @@
-%%building from batch epoch annotator (work in progress)
 function StepperDLCValidator()
-SHOWWINGS = false;
+% StepperDLCValidator.m
+% Validates DLC pose estimations with custom GUI.
+%
+% Author: Mike Rauscher and Nobel Zhou
+% Date: 19 July 2023
+% Version: 0.2
+%
+% VERSION CHANGELOG:
+% - v0.1 (???): Initial commit
+% - v0.2 (7/19/2023): Make code more readable
 
-curdir = pwd;
-[fnames,dispnames,csvnames,savenames] = getvideonames(curdir);
+    %% Define Constants
+    SHOW_WINGS = 0;
+    
+    %% Load Settings
+    % Locate settings file
+    directory = pwd;
+    settingsFile = [directory filesep 'stepperdlcvalidator.set'];
+    
+    % Load settings if found
+    if isfile(settingsFile)
+        load(settingsFile, '-mat', 'settings'); % Load settings from file
+        autosave = settings.autosave;
+        directory = settings.dir;
 
-settingsfile = [curdir filesep 'stepperdlcvalidator.set'];
-if isfile(settingsfile)
-    settings = [];    
-    load(settingsfile,'-mat');
-    autosave = settings.autosave;
-    lastix = find(strcmp(fnames,settings.lastfile));
-    if isempty(lastix);lastix = 1;end
-else
-    autosave = false;
-    lastix = 1;
-end
+        [fnames, dispnames, csvnames, savenames] = getvideonames(directory);
+
+        lastVideoIndex = find(strcmp(fnames, settings.lastfile), 1); % Find the last video open
+
+        % If last video cannot be found, just go to the first one
+        if isempty(lastVideoIndex)
+            lastVideoIndex = 1;
+        end
+    else
+        % Have user get the correct directory
+        directory = uigetdir('.', 'Select Video Folder');
+        [fnames, dispnames, csvnames, savenames] = getvideonames(directory);
+
+        autosave = 0;
+        lastVideoIndex = 1; % Start at first video
+    end
+
+       
 fly = [];
 markers = [];
-vread = VideoReader(fnames{lastix});
-vtimer = timer('Period',.01,'TimerFcn',@nextframe,'ExecutionMode','fixedRate');
+vread = VideoReader(fnames{lastVideoIndex});
+vtimer = timer('Period', .01, 'TimerFcn', @nextframe, 'ExecutionMode', 'fixedRate');
 pcols = hsv(13);
 BCOLOR = [253,141,60]./255;
 HCOLOR = [43,140,190]./255;
 
 ptnames = {...
-    'LeftAntRoot',...
-    'LeftAntTip',...
-    'RightAntRoot',...
-    'RightAntTip',...
+    'LeftAntMed',...
+    'LeftAntDist',...
+    'RightAntMed',...
+    'RightAntDist',...
     'LeftWingRoot',...
     'RightWingRoot',...
     'LeftShoulder',...
@@ -50,7 +76,7 @@ headmethod = 1;
 
 loop = false;
 f = 1;
-cix = lastix;
+cix = lastVideoIndex;
 if isfile(savenames{cix})
     fly = [];
     load(savenames{cix});
@@ -78,10 +104,10 @@ uiwidth = vwidth+480;
 
 c = figure('Name','Stepper DLC Validator','NumberTitle','off',...
     'MenuBar','none','Position',[100 100 1280 800],...
-    'CloseRequestFcn',@closecleanup,'SizeChangedFcn',@szch);
+    'CloseRequestFcn',@onClose,'SizeChangedFcn',@szch);
 
 fileslist = uicontrol(c,'Style','listbox','String',dispnames,...
-    'Position',[0 0 480 600],'Callback',@buttons,'Value',lastix);
+    'Position',[0 0 480 600],'Callback',@buttons,'Value',lastVideoIndex);
 
 vidax = axes(c,'unit','pixel','Position',[480 0 vwidth vheight],'XTick',[],'YTick',[]);
 datax = axes(c,'unit','pixel','Position',[0 0 100 100]);
@@ -115,13 +141,13 @@ im = image(vidax,curframe);
 hold(vidax,'on');
 bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BCOLOR,'LineWidth',2);
 headaxline = plot(vidax,[nan nan],[nan nan],'Color',HCOLOR,'LineWidth',2);
-if SHOWWINGS
+if SHOW_WINGS
     wingLline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
     wingRline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
 end
 drpts = plot(vidax,nan,nan,'*','Color','m','Visible','off');
 edpts = {};
-if SHOWWINGS;uptopt = 13;else;uptopt = 11;end
+if SHOW_WINGS;uptopt = 13;else;uptopt = 11;end
 for ptix = 1:uptopt
     edpts{end+1} = images.roi.Point(vidax);
     edpts{end}.Color = pcols(ptix,:);
@@ -135,8 +161,8 @@ xticks(vidax,[]);
 yticks(vidax,[]);
 hold(vidax,'off');
 %we'll not set the layout here instead do everything with sizechangedfcn
-dispdir = uicontrol(c,'Style', 'edit','ToolTip',curdir,... 
-    'String',curdir,'ButtonDownFcn',@buttons,...
+dispdir = uicontrol(c,'Style', 'edit','ToolTip',directory,... 
+    'String',directory,'ButtonDownFcn',@buttons,...
     'Position', [0 0 480 40],'Enable','off');
 
 playpause = uicontrol(c,'Style','pushbutton','String','>',...
@@ -217,14 +243,14 @@ prevmarkerbtn = uicontrol(c,'Style','pushbutton','String',string(char(923)),...
 szch(c);
 c.WindowState='maximized';
 
-if isfile(savenames{lastix})
+if isfile(savenames{lastVideoIndex})
     updatemarkers;
 end
 curframe = setframeix(1);
 showframe;
 
     function updatetrackingparams(h,~)
-        if SHOWWINGS
+        if SHOW_WINGS
             showpts = [5,6,12,13];
         else
             showpts = [];
@@ -307,7 +333,7 @@ showframe;
         end
         xdat(badix) = nan;
         ydat(badix) = nan;
-        if SHOWWINGS
+        if SHOW_WINGS
             wingLline.XData = xdat([5 12]);wingLline.YData = ydat([5 12]);
             wingRline.XData = xdat([6 13]);wingRline.YData = ydat([6 13]);
         end
@@ -424,7 +450,7 @@ showframe;
         
     end
 
-    function buttons(b,e)
+    function buttons(b, e)
         switch b
             case dispdir
                 return
@@ -545,7 +571,7 @@ showframe;
                     fileslist.String= dispnames;
                 end
             case quitbutton
-                closecleanup;
+                onClose;
                 return
             case deletemarkerbtn
                 if isempty(markers);return;end
@@ -620,7 +646,7 @@ showframe;
         clear('edpts');
         bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BCOLOR,'LineWidth',1.5);
         headaxline = plot(vidax,[nan nan],[nan nan],'Color',HCOLOR,'LineWidth',2.5);
-        if SHOWWINGS
+        if SHOW_WINGS
             wingLline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
             wingRline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
         end
@@ -890,17 +916,32 @@ showframe;
         deletemarkerbtn.Position(1) = gotomarkerbtn.Position(1)+150;
     end
 
-    function closecleanup(~,~)
-        confirm = questdlg('Quit?','','Yes','No','No');
-        if ~strcmp(confirm,'Yes');return;end
-        if autosavecheck.Value == 1
-            buttons(savebutton,[]);
+    % Coder's note: the below function is run whenever a user attempts to
+    % close the figure. A confirmation is given, and then the settings are
+    % saved for next time.
+    function onClose(~, ~)
+        % Display confirmation message
+        confirm = questdlg('Quit?', '', 'Yes', 'No', 'No');
+        
+        if ~strcmp(confirm, 'Yes')
+            return;
         end
-        settings = struct;
+
+        if autosavecheck.Value == 1
+            buttons(savebutton, []); % Click save button before proceeding
+        end
+        
+        % Save settings file
+        settings = struct();
         settings.autosave = autosavecheck.Value;
         settings.lastfile = fnames{fileslist.Value};
-        save(settingsfile,'settings');
-        stop(vtimer);drawnow
-        closereq
+        settings.dir = directory;
+        
+        % Save into stepperdlcvalidator.set
+        save(settingsFile, 'settings');
+
+        stop(vtimer); % Stops frame succession if it was running
+        drawnow; % Update figure
+        closereq; % Close figure
     end
 end

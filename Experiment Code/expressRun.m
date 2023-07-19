@@ -31,7 +31,8 @@ function expressRun(flyNum)
     
     uiwait(msgbox({'Please make sure camera is set to 3.750GB storage, then click ok to continue', ...
         '(Required buffer length 20 seconds)'}));
-
+    
+    %% Loop Start
     for j = 1 : 6
         clc;
 
