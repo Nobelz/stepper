@@ -23,38 +23,51 @@ function StepperDLCValidator()
         'LeftWingTip', 'RightWingTip'};
     
     %% Load Settings
-    % Locate settings file
-    directory = pwd;
-    settingsFile = [directory filesep 'stepperdlcvalidator.set'];
+    settingsLoaded = 0;
+
+    while ~settingsLoaded
+        % Locate settings file
+        directory = pwd;
+        settingsFile = [directory filesep 'stepperdlcvalidator.set'];
+        
+        % Load settings if found
+        if isfile(settingsFile)
+            load(settingsFile, '-mat', 'settings'); % Load settings from file
+            autosave = settings.autosave;
+            directory = settings.dir;
     
-    % Load settings if found
-    if isfile(settingsFile)
-        load(settingsFile, '-mat', 'settings'); % Load settings from file
-        autosave = settings.autosave;
-        directory = settings.dir;
-
-        [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
-
-        lastVideoIndex = find(strcmp(videoNames, settings.lastfile), 1); % Find the last video open
-
-        % If last video cannot be found, just go to the first one
-        if isempty(lastVideoIndex)
-            lastVideoIndex = 1;
+            [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
+    
+            lastVideoIndex = find(strcmp(videoNames, settings.lastfile), 1); % Find the last video open
+            
+            % If last video cannot be found, just go to the first one
+            if isempty(lastVideoIndex)
+                lastVideoIndex = 1;
+            end
+        else
+            % Have user get the correct directory
+            directory = uigetdir('.', 'Select Video Folder');
+            [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
+    
+            autosave = 0;
+            lastVideoIndex = 1; % Start at first video
         end
-    else
-        % Have user get the correct directory
-        directory = uigetdir('.', 'Select Video Folder');
-        [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
-
-        autosave = 0;
-        lastVideoIndex = 1; % Start at first video
-    end
     
+        % Check if the directory has any video files
+        if length(videoNames) < 1
+            uiwait(msgbox({'The selected directory does not contain any videos.', ...
+                'Please select a different folder.'}, 'No Videos'));
+            settingsFile = []; % Reset settings file
+        else
+            settingsLoaded = 1;
+        end
+    end
+
     %% Define Variables
     fly = [];
     markers = [];
-    videoReader = VideoReader(videoNames{lastVideoIndex});
-    videoTimer = timer('Period', .01, 'TimerFcn', @nextFrame, 'ExecutionMode', 'fixedRate');
+    videoReader = VideoReader(videoNames{lastVideoIndex}); % Load last loaded file
+    videoTimer = timer('Period', .01, 'TimerFcn', @nextFrame, 'ExecutionMode', 'fixedRate'); % Initiate video player on 100 fps
     bodyCalcMethod = DEFAULT_CALC_METHOD(1);
     headCalcMethod = DEFAULT_CALC_METHOD(2);
     
@@ -708,7 +721,8 @@ showframe;
         Ypts = csv(:,3:3:end);
         Pval = csv(:,4:3:end);
     end
-
+    
+    %% Update Marker Function
     function updatemarkers()
         [markers, six] = sort(markers);
         tstr = cell(0);
@@ -751,6 +765,9 @@ showframe;
     end
 
     %% Get Video Names Function
+    % The main file lookup function, this function gets the video names,
+    % display names, dlc .csv files, and proc files from the supposed
+    % directory.
     function [videoFiles, displayNames, dlcFiles, procFiles] = getVideoNames(directory)
         trackingFiles = dir([directory filesep '**\*DLC_resnet*.csv']);
         videoFiles = {};
@@ -922,9 +939,9 @@ showframe;
     end
     
     %% Closing Function
-    % Coder's note: the below function is run whenever a user attempts to
-    % close the figure. A confirmation is given, and then the settings are
-    % saved for next time. - nxz157, 7/18/2023
+    % The below function is run whenever a user attempts to close the 
+    % figure. A confirmation is given, and then the settings are
+    % saved for next time.
     function onClose(~, ~)
         % Display confirmation message
         confirm = questdlg('Quit?', '', 'Yes', 'No', 'No');
