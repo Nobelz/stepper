@@ -88,24 +88,11 @@ function StepperDLCValidator()
 
     currentVideoIndex = lastVideoIndex; % Stores the index of the current video being displayed
 
-    loadFly(currentVideoIndex);
+    loadFly(currentVideoIndex); % Load fly information
 
-    % if isfile(procNames{currentVideoIndex}) % Check if video proc file exists
-    %     % Pull fly data if it exists
-    %     load(procNames{currentVideoIndex}, 'fly'); % Load fly struct
-    %     csv = fly.csv;
-    %     xPoints = fly.pts.X;
-    %     yPoints = fly.pts.Y;
-    %     pPoints = fly.pts.P;
-    % 
-    %     updatedFrames = fly.track.frameidx;
-    %     bodyCalcMethod = fly.track.bodymethod;
-    %     headCalcMethod = fly.track.headmethod;
-    % else
-    %     loadCSV();
-    % end
+
 getheadang;
-getbodyang;
+getBodyAngle;
 numFrames = videoReader.NumFrames;
 curframe = setFrameIndex(1);
 vwidth = videoReader.Width;
@@ -280,7 +267,7 @@ showframe;
                 bodybtns(i).Enable = 'on';
             end
         end
-        getbodyang();
+        getBodyAngle();
         bodyline.YData = bodyAngles;
         bodyzmline.YData =bodyAngles;
         
@@ -356,90 +343,103 @@ showframe;
         zoomax.XLim = [frameIndex-10 frameIndex+10];
         drawnow limitrate;
     end
-
-    function getbodyang()
-        X = xPoints;
-        Y = yPoints;
+    
+    %% Get Body Angles Function
+    % Using the X and Y points, as well as the calculation method, this
+    % function calculates the body angle.
+    function getBodyAngle()
+        x = xPoints;
+        y = yPoints;
         switch bodyCalcMethod
-            case 1 %7Pt LR
-                showPoints = [showPoints 5:11];
-                ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
-                upt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
-                dnt = [mean(X(:,[5,6,10,11]),2) mean(Y(:,[5,6,10,11]),2)];
-                bodyAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
-            case 2 %6PT UD
-                showPoints = [showPoints 5:10];
-                ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
-                upt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
-                dnt = [mean(X(:,[5,6,10]),2) mean(Y(:,[5,6,10]),2)];
-                bodyAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
-            case 3 %4Pt LR
-                showPoints = [showPoints 5:8];
-                ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
-                Lt = [mean(X(:,[5,7]),2) mean(Y(:,[5,7]),2)];
-                Rt = [mean(X(:,[6,8]),2) mean(Y(:,[6,8]),2)];
-                bodyAngles = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
-            case 4 %4Pt UD
-                showPoints = [showPoints 5:8];
-                ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
-                upt = [mean(X(:,[7,8]),2) mean(Y(:,[7,8]),2)];
-                dnt = [mean(X(:,[5,6]),2) mean(Y(:,[5,6]),2)];
-                bodyAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
-            case 5 %Shoulders
-                showPoints = [showPoints 7:8];
-                ctr = [mean(X(:,[7,8]),2) mean(Y(:,[7,8]),2)];
-                bodyAngles = atan2d(Y(:,8)-Y(:,7),X(:,8)-X(:,7))+90;
-            case 6 %WingRoots
-                showPoints = [showPoints 5:6];
-                ctr = [mean(X(:,[5,6]),2) mean(Y(:,[5,6]),2)];
-                bodyAngles = atan2d(Y(:,6)-Y(:,5),X(:,6)-X(:,5))+90;
+            case 1 % 7-point Body
+                showPoints = [showPoints 5 : 11];
+                center = [mean(x(:, 5 : 8), 2) mean(y(:, 5 : 8), 2)];
+                up = [mean(x(:, 7 : 9), 2) mean(y(:, 7 : 9), 2)];
+                down = [mean(x(:, [5, 6, 10, 11]), 2) mean(y(:,[5, 6, 10, 11]), 2)];
+                bodyAngles = atan2d(up(:, 2) - down(:, 2), up(:, 1) - down(:, 1));
+            case 2 % 6-point UD
+                showPoints = [showPoints 5 : 10];
+                center = [mean(x(:, 5 : 8), 2) mean(y(:, 5 : 8), 2)];
+                up = [mean(x(:, 7 : 9), 2) mean(y(:, 7 : 9), 2)];
+                down = [mean(x(:, [5, 6, 10]), 2) mean(y(:, [5, 6, 10]), 2)];
+                bodyAngles = atan2d(up(:, 2) - down(:, 2), up(:, 1) - down(:, 1));
+            case 3 % 4-point LR
+                showPoints = [showPoints 5 : 8];
+                center = [mean(x(:, 5 : 8), 2) mean(y(:, 5 : 8), 2)];
+                left = [mean(x(:, [5, 7]), 2) mean(y(:, [5, 7]), 2)];
+                right = [mean(x(:, [6, 8]), 2) mean(y(:, [6 ,8]), 2)];
+                bodyAngles = atan2d(left(:, 2) - right(:, 2), left(:, 1) - right(:, 1)) + 90;
+            case 4 % 4-point UD
+                showPoints = [showPoints 5 : 8];
+                center = [mean(x(:, 5 : 8), 2) mean(y(:, 5 : 8), 2)];
+                up = [mean(x(:, [7 8]), 2) mean(y(:, [7 8]), 2)];
+                down = [mean(x(:, [5 6]), 2) mean(y(:, [5 6]), 2)];
+                bodyAngles = atan2d(up(:, 2) - down(:, 2), up(:, 1) - down(:, 1));
+            case 5 % Shoulders Only
+                showPoints = [showPoints 7 : 8];
+                center = [mean(x(:, [7 8]), 2) mean(y(:, [7 8]), 2)];
+                bodyAngles = atan2d(y(:, 8) - y(:, 7), x(:, 8) - x(:, 7)) + 90;
+            case 6 % WingRoots Only
+                showPoints = [showPoints 5 : 6];
+                center = [mean(x(:, [5 6]), 2) mean(y(:, [5 6]), 2)];
+                bodyAngles = atan2d(y(:, 6) - y(:, 5), x(:, 6) - x(:, 5)) + 90;
         end
-        showPoints = unique(showPoints);
-        bodyLinePoints = [ctr(:,1) + 200*cosd(bodyAngles) ctr(:,2) + 200*sind(bodyAngles) ctr(:,1) - 200*cosd(bodyAngles) ctr(:,2) - 200*sind(bodyAngles)];
-        bodyAngles = bodyAngles-bodyAngles(1);
+
+        showPoints = unique(showPoints); % Get rid of duplicate points (don't display a point twice)
+        bodyLinePoints = [center(:, 1) + 200 * cosd(bodyAngles) ...
+            center(:, 2) + 200 * sind(bodyAngles) ...
+            center(:, 1) - 200 * cosd(bodyAngles) ...
+            center(:, 2) - 200 * sind(bodyAngles)];
+        bodyAngles = bodyAngles - bodyAngles(1);
         bodyAngles = wrapTo180(bodyAngles);
     end
 
+    %% Get Head Angles Function
+    % Using the X and Y points, as well as the calculation method, this
+    % function calculates the head angle.
     function getheadang()
-        X = xPoints;
-        Y = yPoints;
+        x = xPoints;
+        y = yPoints;
         switch headCalcMethod
-            case 1 %Head 7UD
-                showPoints = [showPoints,1:4,7:9];
-                ctr = [mean(X(:,[1:4 7:9]),2) mean(Y(:,[1:4 7:9]),2)];
-                upt = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
-                dnt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
-                headAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
-            case 2 %Head 6UD
-                showPoints = [showPoints,1:4,7:8];
-                ctr = [mean(X(:,[1:4 7:8]),2) mean(Y(:,[1:4 7:8]),2)];
-                upt = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
-                dnt = [mean(X(:,[7:8]),2) mean(Y(:,[7:8]),2)];
-                headAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
-            case 3 %Head 4LR
-                showPoints = [showPoints 1:4];
-                ctr = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
-                Lt = [mean(X(:,[1,2]),2) mean(Y(:,[1,2]),2)];
-                Rt = [mean(X(:,[3,4]),2) mean(Y(:,[3,4]),2)];
-                headAngles = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
-            case 4 %Head 4UD
-                showPoints = [showPoints 1:4];
-                ctr = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
-                upt = [mean(X(:,[2,4]),2) mean(Y(:,[2,4]),2)];
-                dnt = [mean(X(:,[1,3]),2) mean(Y(:,[1,3]),2)];
-                headAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
-            case 5 %Tips only
-                showPoints = [showPoints 2,4];
-                ctr = [mean(X(:,[2,4]),2) mean(Y(:,[2,4]),2)];
-                headAngles = atan2d(Y(:,4)-Y(:,2),X(:,4)-X(:,2))+90;
-            case 6 %Roots only
-                showPoints = [showPoints 1,3];
-                ctr = [mean(X(:,[1,3]),2) mean(Y(:,[1,3]),2)];
-                headAngles = atan2d(Y(:,3)-Y(:,1),X(:,3)-X(:,1))+90;
+            case 1 % 7-point Head
+                showPoints = [showPoints, 1 : 4, 7 : 9];
+                center = [mean(x(:, [1 : 4, 7 : 9]), 2) mean(y(:, [1 : 4, 7 : 9]), 2)];
+                up = [mean(x(:, 1 : 4), 2) mean(y(:, 1 : 4), 2)];
+                down = [mean(x(:, 7 : 9), 2) mean(y(:, 7 : 9), 2)];
+                headAngles = atan2d(up(:, 2) - down(:, 2), up(:, 1) - down(:, 1));
+            case 2 % 6-point UD
+                showPoints = [showPoints, 1 : 4, 7 : 8];
+                center = [mean(x(:, [1 : 4, 7 : 8]), 2) mean(y(:, [1 : 4, 7 : 8]), 2)];
+                up = [mean(x(:, 1 : 4), 2) mean(y(:, 1 : 4), 2)];
+                down = [mean(x(:, 7 : 8), 2) mean(y(:, 7 : 8), 2)];
+                headAngles = atan2d(up(:, 2) - down(:, 2), up(:, 1) - down(:, 1));
+            case 3 % 4-point LR
+                showPoints = [showPoints 1 : 4];
+                center = [mean(x(:, 1 : 4), 2) mean(y(:, 1 : 4), 2)];
+                left = [mean(x(:, [1 2]), 2) mean(y(:, [1 2]), 2)];
+                right = [mean(x(:, [3 4]), 2) mean(y(:, [3 4]), 2)];
+                headAngles = atan2d(left(:, 2) - right(:, 2), left(:, 1) - right(:, 1)) + 90;
+            case 4 % 4-point UD
+                showPoints = [showPoints 1 : 4];
+                center = [mean(x(:, 1 : 4), 2) mean(y(:, 1 : 4), 2)];
+                up = [mean(x(:, [2 4]), 2) mean(y(:, [2 4]), 2)];
+                down = [mean(x(:, [1 3]), 2) mean(y(:, [1 3]), 2)];
+                headAngles = atan2d(up(:, 2) - down(:, 2), up(:, 1) - down(:, 1));
+            case 5 % Tips Only
+                showPoints = [showPoints 2, 4];
+                center = [mean(x(:, [2 4]), 2) mean(y(:, [2 4]), 2)];
+                headAngles = atan2d(y(:, 4) - y(:, 2), x(:, 4) - x(:, 2)) + 90;
+            case 6 % Roots Only
+                showPoints = [showPoints 1, 3];
+                center = [mean(x(:, [1 3]), 2) mean(y(:, [1 3]), 2)];
+                headAngles = atan2d(y(:, 3) - y(:, 1), x(:, 3) - x(:, 1)) + 90;
         end
-        showPoints = unique(showPoints);
-        headLinePoints = [ctr(:,1) + 30*cosd(headAngles) ctr(:,2) + 30*sind(headAngles) ctr(:,1) - 30*cosd(headAngles) ctr(:,2) - 30*sind(headAngles)];
-        headAngles = headAngles-headAngles(1);
+        showPoints = unique(showPoints); % Get rid of duplicate points (don't display a point twice)
+        headLinePoints = [center(:, 1) + 30 * cosd(headAngles) ...
+            center(:, 2) + 30 * sind(headAngles) ...
+            center(:, 1) - 30 * cosd(headAngles) ...
+            center(:, 2) - 30 * sind(headAngles)];
+        headAngles = headAngles - headAngles(1);
         headAngles = wrapTo180(headAngles);
     end
 
@@ -448,7 +448,7 @@ showframe;
         xPoints(frameIndex,pix) =  h.Position(1);
         yPoints(frameIndex,pix) =  h.Position(2);
         pPoints(frameIndex,pix) = inf;%will still be higher than any cutoff but also unambiguously an edited point
-        getbodyang();
+        getBodyAngle();
         getheadang();
         if strcmp(e.EventName,'ROIMoved')
             bodyline.YData = bodyAngles;
@@ -598,7 +598,7 @@ showframe;
                 updatedFrames(ix) = [];
                 updateFrames;
                 getheadang;
-                getbodyang;
+                getBodyAngle;
                 headline.YData = headAngles;
                 bodyline.YData = bodyAngles;
                 if ix>1
@@ -691,7 +691,7 @@ showframe;
         xlim(dataX,[0 numFrames]);
         xticks(dataX,[1 500:500:numFrames]);
         getheadang;
-        getbodyang;
+        getBodyAngle;
         hold(dataX,'on');
         bodyline.XData = 1:numFrames;
         bodyline.YData = bodyAngles;
