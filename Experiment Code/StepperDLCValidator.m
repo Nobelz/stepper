@@ -183,8 +183,8 @@ function StepperDLCValidator()
         newPoint.Label = BODY_NAMES{j};
         newPoint.LabelVisible = 'hover';
         newPoint.Deletable = 0;
-        addlistener(newPoint, 'MovingROI', @eventcb);
-        addlistener(newPoint, 'ROIMoved', @eventcb);
+        addlistener(newPoint, 'MovingROI', @onPointMoved);
+        addlistener(newPoint, 'ROIMoved', @onPointMoved);
 
         editPoints{j} = newPoint;
     end
@@ -306,6 +306,8 @@ curFrame = setFrameIndex(1);
 showFrame;
     
     %% Update Tracking Parameters Function
+    % This function is called whenever we are changing the tracking
+    % calculation method. 
     function updateTrackingParameters(h, ~)
         % Add wing points if wings should be shown
         if SHOW_WINGS
@@ -364,6 +366,7 @@ showFrame;
     end
 
     %% Next Frame Function
+    % This function is called whenever we want to advance the frame.
     function nextFrame(~, ~)
         if (frameIndex + 1) > numFrames
             if LOOP
@@ -373,7 +376,7 @@ showFrame;
                 playPauseButton.String = '>';
             end
         else
-            curFrame = setFrameIndex(frameIndex+1);
+            curFrame = setFrameIndex(frameIndex + 1);
         end
         showFrame();
     end
@@ -525,31 +528,38 @@ showFrame;
         headAngles = wrapTo180(headAngles);
     end
 
-    function eventcb(h,e)
-        pix = find(strcmp(BODY_NAMES,h.Label));
-        xPoints(frameIndex,pix) =  h.Position(1);
-        yPoints(frameIndex,pix) =  h.Position(2);
-        pPoints(frameIndex,pix) = inf;%will still be higher than any cutoff but also unambiguously an edited point
+    %% Point Changed
+    % This function is called whenever a point is moved and edited.
+    function onPointMoved(h, e)
+        pointIndex = find(strcmp(BODY_NAMES, h.Label));
+        % Update point location
+        xPoints(frameIndex, pointIndex) =  h.Position(1);
+        yPoints(frameIndex, pointIndex) =  h.Position(2);
+        pPoints(frameIndex, pointIndex) = inf; % Since this is human inputted, the probability should be inf to signify an unambiguous edited point
         getBodyAngles();
         getHeadAngles();
-        if strcmp(e.EventName,'ROIMoved')
+        
+        % If the point is done moving, we must update the body and head
+        % angle data for the fly
+        if strcmp(e.EventName, 'ROIMoved')
             bodyDataLine.YData = bodyAngles;
             zoomBody.YData = bodyAngles;
             headDataLine.YData = headAngles;
             zoomHead.YData = headAngles;
-            mx = find(updatedFrames==frameIndex,1);
-            if isempty(mx)
+            markerIndex = find(updatedFrames == frameIndex, 1);
+
+            % If marker has not been added, add it
+            if isempty(markerIndex)
                 updatedFrames = [updatedFrames; frameIndex];
-                updateFrames;
+                updateFrames();
             end
         end
         showFrame();
-        
     end
 
     %% Button Click Function
-    % This function is called whenever something is clicked. It involves a
-    % switch case to determine which button was clicked, and then does
+    % This function is called whenever something is clicked. It involves 
+    % a switch case to determine which button was clicked, and then does
     % stuff accordingly.
     function onClick(b, e)
         fileSwitch('off'); % Disable file switching
@@ -759,10 +769,10 @@ showFrame;
     end
 
     %% File Switching GUI Function
-    % This function fixes the bug where autosave will accidentally save the
-    % wrong information for the wrong video. To remedy this issue, this
-    % function will block the file switching GUI until the GUI is finished
-    % executing.
+    % This function fixes the bug where autosave will accidentally save 
+    % the wrong information for the wrong video. To remedy this issue, 
+    % this function will block the file switching GUI until the GUI is 
+    % finished executing.
     function fileSwitch(status)
         prevFileButton.Enable = status;
         nextFileButton.Enable = status;
@@ -825,8 +835,8 @@ showFrame;
             newPoint.Label = BODY_NAMES{k};
             newPoint.LabelVisible = 'hover';
             newPoint.Deletable = 0;
-            addlistener(newPoint, 'MovingROI', @eventcb);
-            addlistener(newPoint, 'ROIMoved', @eventcb);
+            addlistener(newPoint, 'MovingROI', @onPointMoved);
+            addlistener(newPoint, 'ROIMoved', @onPointMoved);
     
             editPoints{k} = newPoint;
         end
@@ -861,8 +871,8 @@ showFrame;
     end
     
     %% Update Frames Function
-    % This function updates the revised frames in the dropdown menu and on
-    % the angle graph.
+    % This function updates the revised frames in the dropdown menu and 
+    % on the angle graph.
     function updateFrames()
         [updatedFrames, sortingIndices] = sort(updatedFrames); % Sort frames in increasing order
 
@@ -917,8 +927,8 @@ showFrame;
     
     %% Load Fly Function
     % This function loads the fly struct from the PROC file if created;
-    % otherwise, it calls loadCSV() to get the X and Y points from the DLC
-    % CSV.
+    % otherwise, it calls loadCSV() to get the X and Y points from the 
+    % DLC CSV.
     function loadFly(index)
         if isfile(procNames{index}) % Check if fly struct already exists in proc file
             load(procNames{index}, 'fly'); % Load fly struct
@@ -935,8 +945,8 @@ showFrame;
     end
 
     %% Load CSV File Function
-    % This function loads the DLC CSV file and pulls the X and Y points, as
-    % well as the confidence.
+    % This function loads the DLC CSV file and pulls the X and Y points, 
+    % as well as the confidence.
     function loadCSV()
         csv = readmatrix(csvNames{currentVideoIndex}, 'Range', 4);
         xPoints = csv(:, 2 : 3 : end);
@@ -945,9 +955,9 @@ showFrame;
     end
 
     %% Set Frame Index Function
-    % This function sets the frame index to the specified index, changing
-    % the progress bar, the display, and the video reader to reflect that
-    % change.
+    % This function sets the frame index to the specified index, 
+    % changing the progress bar, the display, and the video reader to 
+    % reflect that change.
     function frame = setFrameIndex(index)
         frameIndex = index; % Set frame index to the new index
         frame = read(videoReader, index); % Read in new index
@@ -988,8 +998,8 @@ showFrame;
     end
     
     %% Update GUI Function
-    % Whenever the size of the window is changed, this function adjusts the
-    % components of the GUI to fit the newly updated window.
+    % Whenever the size of the window is changed, this function adjusts 
+    % the components of the GUI to fit the newly updated window.
     function onSizeChanged(h, ~)
         % Update video reader
         videoAxis.Position(2) = h.Position(4) * .3;
