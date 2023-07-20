@@ -129,9 +129,9 @@ function StepperDLCValidator()
 
     % Plot data axis
     hold(dataAxis, 'on');
-    bodyLine = plot(dataAxis, 1 : numFrames, bodyAngles, '--', ...
+    bodyDataLine = plot(dataAxis, 1 : numFrames, bodyAngles, '--', ...
         'Color', BODY_COLOR, 'LineWidth', 2.5);
-    headLine = plot(dataAxis, 1 : numFrames, headAngles, ...
+    headDataLine = plot(dataAxis, 1 : numFrames, headAngles, ...
         'Color', HEAD_COLOR, 'LineWidth', 1);
     curFrameLine = xline(dataAxis, 1, 'LineWidth', 1.5); % Specifies line of current frame, currently set to 1
     dataAxis.XGrid = 'on';
@@ -155,9 +155,9 @@ function StepperDLCValidator()
     % Plot video axis
     im = image(videoAxis, curFrame); % Add frame to video
     hold(videoAxis, 'on');
-    bodyLine = plot(videoAxis, [nan nan], [nan nan], '--', ...
+    bodyVideoLine = plot(videoAxis, [nan nan], [nan nan], '--', ...
         'Color', BODY_COLOR, 'LineWidth', 2);
-    headLine = plot(videoAxis, [nan nan], [nan nan], ...
+    headVideoLine = plot(videoAxis, [nan nan], [nan nan], ...
         'Color', HEAD_COLOR, 'LineWidth', 2);
     
     % Show wings if necessary
@@ -329,7 +329,7 @@ showFrame;
         end
         
         getBodyAngle();
-        bodyLine.YData = bodyAngles;
+        bodyDataLine.YData = bodyAngles;
         zoomBody.YData = bodyAngles;
         
         % Update head data
@@ -347,7 +347,7 @@ showFrame;
         end
 
         getHeadAngle();
-        headLine.YData = headAngles;
+        headDataLine.YData = headAngles;
         zoomHead.YData = headAngles;
 
         % Update which poins are shown if the video is not playing
@@ -390,12 +390,12 @@ showFrame;
         
         % Get body and head points
         bodyPoints = bodyLinePoints(frameIndex, :);
-        bodyLine.XData = bodyPoints([1 3]);
-        bodyLine.YData = bodyPoints([2 4]);
+        bodyVideoLine.XData = bodyPoints([1 3]);
+        bodyVideoLine.YData = bodyPoints([2 4]);
         
         headPoints = headLinePoints(frameIndex,:);
-        headLine.XData = headPoints([1 3]);
-        headLine.YData = headPoints([2 4]);
+        headVideoLine.XData = headPoints([1 3]);
+        headVideoLine.YData = headPoints([2 4]);
 
         if strcmp(videoTimer.Running,'on')
             readOnlyPoints.XData = xData(showPoints);
@@ -531,9 +531,9 @@ showFrame;
         getBodyAngle();
         getHeadAngle();
         if strcmp(e.EventName,'ROIMoved')
-            bodyLine.YData = bodyAngles;
+            bodyDataLine.YData = bodyAngles;
             zoomBody.YData = bodyAngles;
-            headLine.YData = headAngles;
+            headDataLine.YData = headAngles;
             zoomHead.YData = headAngles;
             mx = find(updatedFrames==frameIndex,1);
             if isempty(mx)
@@ -565,14 +565,14 @@ showFrame;
                 if b.Value~=currentVideoIndex && autosaveCheckBox.Value == 1
                     buttons(saveButton,[]);
                 end
-                loadvid(b.Value);
+                loadVideo(b.Value);
             case nextFileButton
                 if filesList.Value~=length(videoNames)
                     if autosaveCheckBox.Value == 1
                         buttons(saveButton,[]);
                     end
                     filesList.Value = filesList.Value+1;
-                    loadvid(filesList.Value);
+                    loadVideo(filesList.Value);
                 end
             case prevFileButton                
                 if filesList.Value~=1
@@ -580,7 +580,7 @@ showFrame;
                         buttons(saveButton,[]);
                     end
                     filesList.Value = filesList.Value-1;    
-                    loadvid(filesList.Value);
+                    loadVideo(filesList.Value);
                 end
             case progressBar
 %                 b.Value = min([numframes,round(b.Value)]);
@@ -679,8 +679,8 @@ showFrame;
                 updateFrames;
                 getHeadAngle;
                 getBodyAngle;
-                headLine.YData = headAngles;
-                bodyLine.YData = bodyAngles;
+                headDataLine.YData = headAngles;
+                bodyDataLine.YData = bodyAngles;
                 if ix>1
                     markerDropdownMenu.Value = ix-1;
                 end
@@ -720,34 +720,47 @@ showFrame;
         end
     end
 
-    function loadvid(ix)
-        if strcmp(videoTimer.Running,'on')
+    %% Load Video Function
+    function loadVideo(videoIndex)
+        % Stop video playback if running
+        if strcmp(videoTimer.Running, 'on')
             stop(videoTimer);
             playPauseButton.String = '>';
         end        
-        currentVideoIndex = ix;
-        videoReader = VideoReader(videoNames{ix});
-        % hyp = sqrt(videoReader.Width^2 + videoReader.Height^2);
+
+        currentVideoIndex = videoIndex;
+        videoReader = VideoReader(videoNames{videoIndex});
+
         numFrames = videoReader.NumFrames;
         progressBar.Value = 1;
-        progressBar.SliderStep = [1/(numFrames-1) 1/(numFrames-1)];
+        progressBar.SliderStep = [1 / (numFrames - 1) 1 / (numFrames - 1)];
         progressBar.Max = numFrames;
-        curFrame=setFrameIndex(1);
-        im = image(videoAxis,curFrame);
-        hold(videoAxis,'on');
-        clear('bodyLine');
-        clear('headLine');
+
+        curFrame = setFrameIndex(1);
+        im.CData = curFrame;
+
+        % im = image(videoAxis, curFrame);
+
+        hold(videoAxis, 'on');
+        clear('bodyVideoLine');
+        clear('headVideoLine');
         clear('readOnlyPoints');
         clear('editPoints');
-        bodyLine = plot(videoAxis,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',1.5);
-        headLine = plot(videoAxis,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2.5);
+        bodyVideoLine = plot(videoAxis, [nan nan], [nan nan], '--', ...
+            'Color', BODY_COLOR, 'LineWidth', 1.5);
+        headVideoLine = plot(videoAxis, [nan nan], [nan nan], ...
+            'Color', HEAD_COLOR, 'LineWidth', 2.5);
         if SHOW_WINGS
-            wingLline = plot(videoAxis,[nan nan],[nan nan],'Color','r','LineWidth',2);
-            wingRline = plot(videoAxis,[nan nan],[nan nan],'Color','r','LineWidth',2);
+            wingLline = plot(videoAxis, [nan nan], [nan nan], ...
+                'Color','r','LineWidth',2);
+            wingRline = plot(videoAxis, [nan nan], [nan nan], ...
+                'Color', 'r', 'LineWidth',2);
         end
-        readOnlyPoints = plot(videoAxis,nan,nan,'*','Color','m','Visible','off');
+
+        readOnlyPoints = plot(videoAxis, nan, nan, '*', ...
+            'Color', 'm', 'Visible','off');
         editPoints = {};
-        for i = 1:numEditPoints
+        for i = 1 : numEditPoints
             editPoints{end+1} = images.roi.Point(videoAxis);
             editPoints{end}.Color = COLOR_MAP(i,:);
             editPoints{end}.Label = BODY_NAMES{i};
@@ -762,7 +775,7 @@ showFrame;
             addlistener(editPoints{end},'ROIMoved',@eventcb);
         end
 
-        loadFly(ix);
+        loadFly(videoIndex);
         
 %         pts = plot(vidax,nan(1,13),nan(1,13),'m*');
         hold(videoAxis,'off');
@@ -773,10 +786,10 @@ showFrame;
         getHeadAngle;
         getBodyAngle;
         hold(dataAxis,'on');
-        bodyLine.XData = 1:numFrames;
-        bodyLine.YData = bodyAngles;
-        headLine.XData = 1:numFrames;
-        headLine.YData = headAngles;
+        bodyDataLine.XData = 1:numFrames;
+        bodyDataLine.YData = bodyAngles;
+        headDataLine.XData = 1:numFrames;
+        headDataLine.YData = headAngles;
         zoomBody.XData = 1:numFrames;
         zoomBody.YData = bodyAngles;
         zoomHead.XData = 1:numFrames;
