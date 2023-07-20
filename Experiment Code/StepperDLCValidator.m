@@ -11,7 +11,7 @@ function StepperDLCValidator()
 % - v0.2 (7/20/2023): Make code more readable
 
     %% Define Constants
-    SHOW_WINGS = 0;
+    SHOW_WINGS = 0; % Whether to show wings or not
     DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
     BODY_COLOR = [253, 141, 60] ./ 255;
     HEAD_COLOR = [43, 140, 190] ./ 255;
@@ -106,7 +106,7 @@ function StepperDLCValidator()
     c = figure('Name', 'Stepper DLC Validator', ...
         'NumberTitle', 'off', 'MenuBar', 'none', ...
         'Position', [100 100 1280 800], 'CloseRequestFcn', @onClose, ...
-        'SizeChangedFcn', @szch);
+        'SizeChangedFcn', @onSizeChanged);
     
     % Make file list in bottom left
     filesList = uicontrol(c, 'Style', 'listbox', 'String', displayNames, ...
@@ -141,7 +141,7 @@ function StepperDLCValidator()
     dataAxis.ButtonDownFcn = @buttons; % Attach handler when they click on data axis
     
     % Plot zoomed axis
-    hold(zoomAxis,'on')
+    hold(zoomAxis, 'on')
     zoomBody = plot(zoomAxis, 1 : numFrames, bodyAngles, '--', ...
         'Color', BODY_COLOR, 'LineWidth', 2.5);
     zoomHead = plot(zoomAxis, 1 : numFrames, headAngles, ...
@@ -150,11 +150,11 @@ function StepperDLCValidator()
     zoomAxis.XGrid = 'on';
     zoomAxis.YGrid = 'on';
     zoomAxis.XTick = 1 : numFrames;
-    hold(zoomAxis,'off');
+    hold(zoomAxis, 'off');
 
     % Plot video axis
     im = image(videoAxis, curFrame); % Add frame to video
-    hold(videoAxis,'on');
+    hold(videoAxis, 'on');
     bodyaxline = plot(videoAxis, [nan nan], [nan nan], '--', ...
         'Color', BODY_COLOR, 'LineWidth', 2);
     headaxline = plot(videoAxis, [nan nan], [nan nan], ...
@@ -224,102 +224,119 @@ function StepperDLCValidator()
     prevFileButton = uicontrol(c, 'Style', 'pushbutton', 'String', string(char(923)), ...
         'Position', [0 0 1 1], 'Callback', @buttons, 'FontSize', 28);
     
-    % Add saving GUI
+    % Add autosave checkbox
     autosaveCheckBox = uicontrol(c, 'Style', 'checkbox', 'String', 'Autosave', ...
         'Position', [0 0 1 1], 'Value', autosave);
-savebutton = uicontrol(c,'Style','pushbutton','String','Save',...
-    'Position',[0 0 1 1],'Callback',@buttons);
-deletebutton = uicontrol(c,'Style','pushbutton','String','Delete',...
-    'Position',[0 0 1 1],'Callback',@buttons);
-quitbutton = uicontrol(c,'Style','pushbutton','String','Quit',...
-    'Position',[0 0 1 1],'Callback',@buttons);
 
-nextframebtn = uicontrol(c,'Style','pushbutton','String','>',...
-    'Position',[0 0 1 1],'Callback',@buttons);
-prevframebtn = uicontrol(c,'Style','pushbutton','String','<',...
-    'Position',[0 0 1 1],'Callback',@buttons);
+    % Add save button
+    saveButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Save', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
 
-Body7UDbtn = uicontrol(c,'Style','pushbutton','String','7pt Body',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Body6UDbtn = uicontrol(c,'Style','pushbutton','String','6pt Body',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Body4LRbtn = uicontrol(c,'Style','pushbutton','String','4Pt LR Body',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Body4UDbtn = uicontrol(c,'Style','pushbutton','String','4Pt UD Body',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Body2Sbtn = uicontrol(c,'Style','pushbutton','String','Shoulders',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Body2Wbtn = uicontrol(c,'Style','pushbutton','String','Wing Roots',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-bodybtns = [Body7UDbtn,Body6UDbtn,Body4LRbtn,...
-    Body4UDbtn,Body2Sbtn,Body2Wbtn];
+    % Add delete button
+    deleteButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Delete', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
 
-Head7UDbtn = uicontrol(c,'Style','pushbutton','String','7Pt Head',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Head6UDbtn = uicontrol(c,'Style','pushbutton','String','6Pt Head',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Head4LRbtn = uicontrol(c,'Style','pushbutton','String','4Pt LR Head',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Head4UDbtn = uicontrol(c,'Style','pushbutton','String','4Pt UD Head',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Head2Tbtn = uicontrol(c,'Style','pushbutton','String','Tips',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-Head2Rbtn = uicontrol(c,'Style','pushbutton','String','Roots',...
-    'Position',[0 0 1 1],'Callback',@updatetrackingparams);
-headbtns = [Head7UDbtn,Head6UDbtn,Head4LRbtn,Head4UDbtn,Head2Tbtn,Head2Rbtn];
+    % Add quit button
+    quitButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Quit', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
+    
+    % Add frame buttons
+    nextFrameButton = uicontrol(c, 'Style', 'pushbutton', 'String', '>', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
+    prevFrameButton = uicontrol(c, 'Style', 'pushbutton', 'String', '<', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
 
-updatetrackingparams(headbtns(headCalcMethod));
-        
-deletemarkerbtn = uicontrol(c,'Style','pushbutton','String','Revert Frame to CSV',...
-    'Position',[0 0 1 1],'Callback',@buttons);
-gotomarkerbtn = uicontrol(c,'Style','pushbutton','String','Goto Fixed Frame',...
-    'Position',[0 0 1 1],'Callback',@buttons);
-updatedFramesDropdownMenu = uicontrol(c,'Style','popupmenu','String',' ',...
-    'Position',[0 55 200 23]);
+    % Add body buttons
+    body7PtButton = uicontrol(c, 'Style', 'pushbutton', 'String', '7pt Body', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    body6UDButton = uicontrol(c,'Style', 'pushbutton', 'String', '6pt Body', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    body4LRButton = uicontrol(c,'Style', 'pushbutton', 'String', '4Pt LR Body', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    body4UDButton = uicontrol(c, 'Style', 'pushbutton', 'String', '4Pt UD Body', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    body2SButton = uicontrol(c,'Style', 'pushbutton', 'String', 'Shoulders', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    body2WButton = uicontrol(c,'Style', 'pushbutton', 'String', 'Wing Roots', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    bodyButtons = [body7PtButton, body6UDButton, body4LRButton, ...
+        body4UDButton, body2SButton, body2WButton];
+    
+    % Add head buttons
+    head7PtButton = uicontrol(c, 'Style', 'pushbutton', 'String', '7Pt Head', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    head6UDButton = uicontrol(c, 'Style', 'pushbutton', 'String', '6Pt Head', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    head4LRButton = uicontrol(c, 'Style', 'pushbutton', 'String', '4Pt LR Head', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    head4UDButton = uicontrol(c, 'Style' ,'pushbutton', 'String', '4Pt UD Head', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    head2TButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Tips', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    head2RButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Roots', ...
+        'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
+    headButtons = [head7PtButton, head6UDButton, head4LRButton, 
+        head4UDButton, head2TButton, head2RButton];
 
-nextmarkerbtn = uicontrol(c,'Style','pushbutton','String','V',...
-    'Position',[0 0 1 1],'Callback',@buttons);
-prevmarkerbtn = uicontrol(c,'Style','pushbutton','String',string(char(923)),...
-    'Position',[0 0 1 1],'Callback',@buttons);
-szch(c);
-c.WindowState='maximized';
+    % Update tracking parameters
+    updateTrackingParameters(headButtons(headCalcMethod));
+    
+    % Add marker buttons
+    deleteMarkerButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Revert Frame to CSV', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
+    gotoMarkerButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Goto Fixed Frame', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
+    nextMarkerButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'V', ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
+    prevMarkerButton = uicontrol(c, 'Style', 'pushbutton', 'String', string(char(923)), ...
+        'Position', [0 0 1 1], 'Callback', @buttons);
+
+    % Add updated frames dropdown menu
+    markerDropdownMenu = uicontrol(c, 'Style', 'popupmenu', 'String', ' ', ...
+        'Position', [0 55 200 23]);
+
+    % Update GUI to size
+    onSizeChanged(c);
+    c.WindowState='maximized'; % Maximize window
 
 if isfile(procNames{lastVideoIndex})
     updateFrames;
 end
 curFrame = setFrameIndex(1);
 showframe;
-
-    function updatetrackingparams(h,~)
+    
+    %% Update Tracking Parameters Function
+    function updateTrackingParameters(h, ~)
+        % Add wing points if wings should be shown
         if SHOW_WINGS
-            showPoints = [5,6,12,13];
+            showPoints = [5, 6, 12, 13];
         else
             showPoints = [];
         end
-        mx = find(h==bodybtns);
+        mx = find(h==bodyButtons);
         if ~isempty(mx)
             bodyCalcMethod = mx;
         end
         for i = 1:6
             if i==bodyCalcMethod
-                bodybtns(i).Enable = 'off';
+                bodyButtons(i).Enable = 'off';
             else
-                bodybtns(i).Enable = 'on';
+                bodyButtons(i).Enable = 'on';
             end
         end
         getBodyAngle();
         bodyLine.YData = bodyAngles;
         zoomBody.YData =bodyAngles;
         
-        mx = find(h==headbtns);
+        mx = find(h==headButtons);
         if ~isempty(mx)
             headCalcMethod = mx;
         end
         for i = 1:4
             if i==headCalcMethod
-                headbtns(i).Enable = 'off';
+                headButtons(i).Enable = 'off';
             else
-                headbtns(i).Enable = 'on';
+                headButtons(i).Enable = 'on';
             end
         end
         getHeadAngle()
@@ -523,13 +540,13 @@ showframe;
 %                 loadvid(1);
             case filesList
                 if b.Value~=currentVideoIndex && autosaveCheckBox.Value == 1
-                    buttons(savebutton,[]);
+                    buttons(saveButton,[]);
                 end
                 loadvid(b.Value);
             case nextFileButton
                 if filesList.Value~=length(videoNames)
                     if autosaveCheckBox.Value == 1
-                        buttons(savebutton,[]);
+                        buttons(saveButton,[]);
                     end
                     filesList.Value = filesList.Value+1;
                     loadvid(filesList.Value);
@@ -537,7 +554,7 @@ showframe;
             case prevFileButton                
                 if filesList.Value~=1
                     if autosaveCheckBox.Value == 1
-                        buttons(savebutton,[]);
+                        buttons(saveButton,[]);
                     end
                     filesList.Value = filesList.Value-1;    
                     loadvid(filesList.Value);
@@ -577,11 +594,11 @@ showframe;
                     playPauseButton.String = '>';
                 end
                 curFrame = setFrameIndex(1);
-            case nextframebtn
+            case nextFrameButton
                 if frameIndex<numFrames && strcmp(videoTimer.Running,'off')
                     curFrame = setFrameIndex(frameIndex+1);
                 end
-            case prevframebtn
+            case prevFrameButton
                 if frameIndex>1 && strcmp(videoTimer.Running,'off')
                     curFrame = setFrameIndex(frameIndex-1);
                 end
@@ -597,7 +614,7 @@ showframe;
                 else
                     return
                 end            
-            case savebutton
+            case saveButton
 %                 assignin('base','controlpoints',outstruct);
                 fn = procNames{currentVideoIndex};
                 fly = struct;
@@ -616,7 +633,7 @@ showframe;
                     filesList.String= displayNames;
                 end
                 return
-            case deletebutton
+            case deleteButton
                 fn = procNames{filesList.Value};
                 if isfile(fn)                    
                     delete(fn)
@@ -625,12 +642,12 @@ showframe;
                     displayNames{filesList.Value} = displayNames{filesList.Value}(2:end);
                     filesList.String= displayNames;
                 end
-            case quitbutton
+            case quitButton
                 onClose;
                 return
-            case deletemarkerbtn
+            case deleteMarkerButton
                 if isempty(updatedFrames);return;end
-                ix = updatedFramesDropdownMenu.Value;
+                ix = markerDropdownMenu.Value;
                 revix = updatedFrames(ix);
                 xPoints(revix,:) = csv(revix,2:3:end);
                 yPoints(revix,:) = csv(revix,3:3:end);
@@ -642,28 +659,28 @@ showframe;
                 headLine.YData = headAngles;
                 bodyLine.YData = bodyAngles;
                 if ix>1
-                    updatedFramesDropdownMenu.Value = ix-1;
+                    markerDropdownMenu.Value = ix-1;
                 end
-            case gotomarkerbtn
+            case gotoMarkerButton
                 if isempty(updatedFrames);return;end
-                curFrame = setFrameIndex(updatedFrames(updatedFramesDropdownMenu.Value));
-            case nextmarkerbtn
+                curFrame = setFrameIndex(updatedFrames(markerDropdownMenu.Value));
+            case nextMarkerButton
                 if isempty(updatedFrames);return;end
-                if updatedFramesDropdownMenu.Value==length(updatedFrames)
+                if markerDropdownMenu.Value==length(updatedFrames)
                     ix = 1;
                 else
-                    ix = updatedFramesDropdownMenu.Value+1;
+                    ix = markerDropdownMenu.Value+1;
                 end
-                updatedFramesDropdownMenu.Value = ix;
+                markerDropdownMenu.Value = ix;
                 curFrame = setFrameIndex(updatedFrames(ix));
-            case prevmarkerbtn
+            case prevMarkerButton
                 if isempty(updatedFrames);return;end
-                if updatedFramesDropdownMenu.Value==1
+                if markerDropdownMenu.Value==1
                     ix = length(updatedFrames);
                 else
-                    ix = updatedFramesDropdownMenu.Value-1;
+                    ix = markerDropdownMenu.Value-1;
                 end
-                updatedFramesDropdownMenu.Value = ix;
+                markerDropdownMenu.Value = ix;
                 curFrame = setFrameIndex(updatedFrames(ix));
             case dataAxis
                 if e.Button==1
@@ -745,7 +762,7 @@ showframe;
 %         bodyline = plot(datax,1:numframes,BodyAng,'--','Color',BCOLOR,'LineWidth',1.5);
 %         headline = plot(datax,1:numframes,HeadAng,'Color',HCOLOR,'LineWidth',2.5);
         hold(dataAxis,'off');
-        updatetrackingparams(bodybtns(bodyCalcMethod));
+        updateTrackingParameters(bodyButtons(bodyCalcMethod));
         updateFrames
         showframe;
     end
@@ -758,8 +775,8 @@ showframe;
 
         % If there are no updated frames anymore, clear the dropdown menu
         if isempty(updatedFrames)
-            updatedFramesDropdownMenu.Value = 1;
-            updatedFramesDropdownMenu.String = ' ';
+            markerDropdownMenu.Value = 1;
+            markerDropdownMenu.String = ' ';
         else
             frameStrings = cell(length(updatedFrames)); % Store the names of the frames that were updated
             
@@ -768,8 +785,8 @@ showframe;
             for i = 1 : length(updatedFrames)
                 frameStrings{i} = ['F' num2str(updatedFrames(i))];
             end
-            updatedFramesDropdownMenu.String = frameStrings; % Set the frames in the dropdown menu
-            updatedFramesDropdownMenu.Value = sortingIndices(end); % Set the selection to be the last updated frame
+            markerDropdownMenu.String = frameStrings; % Set the frames in the dropdown menu
+            markerDropdownMenu.Value = sortingIndices(end); % Set the selection to be the last updated frame
         end    
         
         timerRunning = strcmp(videoTimer.Running, 'on'); % Check if the video timer was running before
@@ -876,149 +893,181 @@ showframe;
             end
         end
     end
-
-    function szch(h,~)
-        videoAxis.Position(2) = h.Position(4)*.3;
-        videoAxis.Position(4) = h.Position(4)-videoAxis.Position(2)+1;
-        videoAxis.Position(3) = videoAxis.Position(4)*4/3;
+    
+    %% Update GUI Function
+    % Whenever the size of the window is changed, this function adjusts the
+    % components of the GUI to fit the newly updated window.
+    function onSizeChanged(figure, ~)
+        % Update video reader
+        videoAxis.Position(2) = figure.Position(4) * .3;
+        videoAxis.Position(4) = figure.Position(4) - videoAxis.Position(2) + 1;
+        videoAxis.Position(3) = videoAxis.Position(4) * 4 / 3;
         videoAxis.Position(1) = 0;
+
+        % Update file list
         filesList.Position(1) = 0;
-        filesList.Position(3) = videoAxis.Position(3)-200;
-        filesList.Position(4) = videoAxis.Position(2)-25;
+        filesList.Position(3) = videoAxis.Position(3) - 200;
+        filesList.Position(4) = videoAxis.Position(2) - 25;
+
+        % Update file buttons
         prevFileButton.Position(1) = filesList.Position(3);
-        prevFileButton.Position(2) = filesList.Position(4)/2;
+        prevFileButton.Position(2) = filesList.Position(4) / 2;
         prevFileButton.Position(3) = 100;
-        prevFileButton.Position(4) = filesList.Position(4)/2;
-        nextFileButton.Position(1) = filesList.Position(3);
+        prevFileButton.Position(4) = filesList.Position(4) / 2;
+
+        nextFileButton.Position(1) = filesList.Position(3); 
         nextFileButton.Position(2) = 0;
         nextFileButton.Position(3) = 100;
-        nextFileButton.Position(4) = filesList.Position(4)/2;
-        quitbutton.Position(1) = filesList.Position(3)+100;
-        quitbutton.Position(2) = 0;
-        quitbutton.Position(3) = 100;
-        quitbutton.Position(4) = filesList.Position(4)/3;
-        deletebutton.Position = quitbutton.Position;
-        deletebutton.Position(2) = deletebutton.Position(2)+deletebutton.Position(4);
-        savebutton.Position = deletebutton.Position;
-        savebutton.Position(2) = savebutton.Position(2)+savebutton.Position(4);
-        autosaveCheckBox.Position = savebutton.Position;
-        autosaveCheckBox.Position(1) = autosaveCheckBox.Position(1)+20;
-        autosaveCheckBox.Position(2) = autosaveCheckBox.Position(2)+autosaveCheckBox.Position(4);
-        autosaveCheckBox.Position(3) = autosaveCheckBox.Position(3)-20;
+        nextFileButton.Position(4) = filesList.Position(4) / 2;
+
+        % Update quit button
+        quitButton.Position(1) = filesList.Position(3) + 100;
+        quitButton.Position(2) = 0;
+        quitButton.Position(3) = 100;
+        quitButton.Position(4) = filesList.Position(4) / 3;
+
+        % Update delete button
+        deleteButton.Position = quitButton.Position;
+        deleteButton.Position(2) = deleteButton.Position(2) + deleteButton.Position(4);
+        
+        % Update save button
+        saveButton.Position = deleteButton.Position;
+        saveButton.Position(2) = saveButton.Position(2) + saveButton.Position(4);
+        
+        % Update autosave checkbox
+        autosaveCheckBox.Position = saveButton.Position;
+        autosaveCheckBox.Position(1) = autosaveCheckBox.Position(1) + 20;
+        autosaveCheckBox.Position(2) = autosaveCheckBox.Position(2) + autosaveCheckBox.Position(4);
+        autosaveCheckBox.Position(3) = autosaveCheckBox.Position(3) - 20;
         autosaveCheckBox.Position(4) = 25;
         
+        % Update folder display
         folderDisplay.Position(1) = 0;
         folderDisplay.Position(2) = filesList.Position(4);
-        folderDisplay.Position(3) = filesList.Position(3)+100;
+        folderDisplay.Position(3) = filesList.Position(3) + 100;
         folderDisplay.Position(4) = 25;
-        dataAxis.Position(1) = videoAxis.Position(3)+35;
+    
+        % Update data window
+        dataAxis.Position(1) = videoAxis.Position(3) + 35;
         dataAxis.Position(2) = 75;
-        dataAxis.Position(3) = h.Position(3)-videoAxis.Position(3)-35; 
-        dataAxis.Position(4) = h.Position(4)-430;
+        dataAxis.Position(3) = figure.Position(3) - videoAxis.Position(3) - 35; 
+        dataAxis.Position(4) = figure.Position(4) - 430;
+
+        % Update zoomed data window
         zoomAxis.Position(1) = dataAxis.Position(1);
-        zoomAxis.Position(2) = dataAxis.Position(2)+dataAxis.Position(4)+30;
+        zoomAxis.Position(2) = dataAxis.Position(2) + dataAxis.Position(4) + 30;
         zoomAxis.Position(3) = dataAxis.Position(3);
         zoomAxis.Position(4) = 200;
-        playPauseButton.Position(1) = videoAxis.Position(3)+5;
-        playPauseButton.Position(2) = h.Position(4)-55;
+
+        % Update video buttons
+        playPauseButton.Position(1) = videoAxis.Position(3) + 5;
+        playPauseButton.Position(2) = figure.Position(4) - 55;
         playPauseButton.Position(3) = 50;
         playPauseButton.Position(4) = 50;
+
         stopButton.Position = playPauseButton.Position;
-        stopButton.Position(1) = stopButton.Position(1)+50;
-        frameDisplay.Position(1) = stopButton.Position(1)+stopButton.Position(3)+7;
-        frameDisplay.Position(2) = h.Position(4)-30;
-%         dispframe.Position(3) = 300;
-        frameDisplay.Position(3) = h.Position(3)-frameDisplay.Position(1)-7;
+        stopButton.Position(1) = stopButton.Position(1) + 50;
+
+        % Update frame display buttons
+        frameDisplay.Position(1) = stopButton.Position(1) + stopButton.Position(3) + 7;
+        frameDisplay.Position(2) = figure.Position(4) - 30;
+        frameDisplay.Position(3) = figure.Position(3) - frameDisplay.Position(1) - 7;
         frameDisplay.Position(4) = 25;
-        progressBar.Position(1) = stopButton.Position(1)+stopButton.Position(3)+7;
-        progressBar.Position(2) = h.Position(4)-55;
-%         progress.Position(3) = 300;
-        progressBar.Position(3) = h.Position(3)-progressBar.Position(1)-7;
+
+        % Update progress bar
+        progressBar.Position(1) = stopButton.Position(1) + stopButton.Position(3) + 7;
+        progressBar.Position(2) = figure.Position(4) - 55;
+        progressBar.Position(3) = figure.Position(3) - progressBar.Position(1) - 7;
         progressBar.Position(4) = 25;
         
-        prevframebtn.Position = playPauseButton.Position;
-        prevframebtn.Position(2) = prevframebtn.Position(2)-60;
-        nextframebtn.Position = prevframebtn.Position;
-        nextframebtn.Position(1) = nextframebtn.Position(1)+50;
+        % Update frame buttons
+        prevFrameButton.Position = playPauseButton.Position;
+        prevFrameButton.Position(2) = prevFrameButton.Position(2) - 60;
+        nextFrameButton.Position = prevFrameButton.Position;
+        nextFrameButton.Position(1) = nextFrameButton.Position(1) + 50;
         
-        Body7UDbtn.Position(1) = nextframebtn.Position(1)+nextframebtn.Position(3)+7;
-        Body7UDbtn.Position(2)= nextframebtn.Position(2)+25;
-        Body7UDbtn.Position(3) = 70;
-        Body7UDbtn.Position(4) = 25;
+        % Update body buttons
+        body7PtButton.Position(1) = nextFrameButton.Position(1) + nextFrameButton.Position(3) + 7;
+        body7PtButton.Position(2)= nextFrameButton.Position(2) + 25;
+        body7PtButton.Position(3) = 70;
+        body7PtButton.Position(4) = 25;
         
-        Body6UDbtn.Position(1) = nextframebtn.Position(1)+nextframebtn.Position(3)+7;
-        Body6UDbtn.Position(2)= nextframebtn.Position(2);
-        Body6UDbtn.Position(3) = 70;
-        Body6UDbtn.Position(4) = 25;
+        body6UDButton.Position(1) = nextFrameButton.Position(1) + nextFrameButton.Position(3) + 7;
+        body6UDButton.Position(2)= nextFrameButton.Position(2);
+        body6UDButton.Position(3) = 70;
+        body6UDButton.Position(4) = 25;
         
-        Body4LRbtn.Position(1) = Body7UDbtn.Position(1)+Body7UDbtn.Position(3)+1;
-        Body4LRbtn.Position(2)= Body7UDbtn.Position(2);
-        Body4LRbtn.Position(3) = 70;
-        Body4LRbtn.Position(4) = 25;
+        body4LRButton.Position(1) = body7PtButton.Position(1) + body7PtButton.Position(3) + 1;
+        body4LRButton.Position(2) = body7PtButton.Position(2);
+        body4LRButton.Position(3) = 70;
+        body4LRButton.Position(4) = 25;
         
-        Body4UDbtn.Position(1) = Body6UDbtn.Position(1)+Body6UDbtn.Position(3)+1;
-        Body4UDbtn.Position(2)= Body6UDbtn.Position(2);
-        Body4UDbtn.Position(3) = 70;
-        Body4UDbtn.Position(4) = 25;
+        body4UDButton.Position(1) = body6UDButton.Position(1) + body6UDButton.Position(3) + 1;
+        body4UDButton.Position(2) = body6UDButton.Position(2);
+        body4UDButton.Position(3) = 70;
+        body4UDButton.Position(4) = 25;
         
-        Body2Sbtn.Position(1) = Body4UDbtn.Position(1)+Body4UDbtn.Position(3)+1;
-        Body2Sbtn.Position(2)= Body4UDbtn.Position(2);
-        Body2Sbtn.Position(3) = 70;
-        Body2Sbtn.Position(4) = 25;
+        body2SButton.Position(1) = body4UDButton.Position(1) + body4UDButton.Position(3) + 1;
+        body2SButton.Position(2) = body4UDButton.Position(2);
+        body2SButton.Position(3) = 70;
+        body2SButton.Position(4) = 25;
         
-        Body2Wbtn.Position(1) = Body4LRbtn.Position(1)+Body4LRbtn.Position(3)+1;
-        Body2Wbtn.Position(2)= Body4LRbtn.Position(2);
-        Body2Wbtn.Position(3) = 70;
-        Body2Wbtn.Position(4) = 25;                
+        body2WButton.Position(1) = body4LRButton.Position(1) + body4LRButton.Position(3) + 1;
+        body2WButton.Position(2) = body4LRButton.Position(2);
+        body2WButton.Position(3) = 70;
+        body2WButton.Position(4) = 25;                
         
-        Head7UDbtn.Position(1) = Body2Wbtn.Position(1)+Body2Wbtn.Position(3)+7;
-        Head7UDbtn.Position(2)= Body2Wbtn.Position(2);
-        Head7UDbtn.Position(3) = 70;
-        Head7UDbtn.Position(4) = 25;
+        % Update head buttons
+        head7PtButton.Position(1) = body2WButton.Position(1) + body2WButton.Position(3) + 7;
+        head7PtButton.Position(2) = body2WButton.Position(2);
+        head7PtButton.Position(3) = 70;
+        head7PtButton.Position(4) = 25;
         
-        Head6UDbtn.Position(1) = Body2Sbtn.Position(1)+Body2Sbtn.Position(3)+7;
-        Head6UDbtn.Position(2)= Body2Sbtn.Position(2);
-        Head6UDbtn.Position(3) = 70;
-        Head6UDbtn.Position(4) = 25;
+        head6UDButton.Position(1) = body2SButton.Position(1) + body2SButton.Position(3) + 7;
+        head6UDButton.Position(2) = body2SButton.Position(2);
+        head6UDButton.Position(3) = 70;
+        head6UDButton.Position(4) = 25;
         
-        Head4LRbtn.Position(1) = Head7UDbtn.Position(1)+Head7UDbtn.Position(3)+1;
-        Head4LRbtn.Position(2)= Head7UDbtn.Position(2);
-        Head4LRbtn.Position(3) = 70;
-        Head4LRbtn.Position(4) = 25;
+        head4LRButton.Position(1) = head7PtButton.Position(1) + head7PtButton.Position(3) + 1;
+        head4LRButton.Position(2) = head7PtButton.Position(2);
+        head4LRButton.Position(3) = 70;
+        head4LRButton.Position(4) = 25;
         
-        Head4UDbtn.Position(1) = Head6UDbtn.Position(1)+Head6UDbtn.Position(3)+1;
-        Head4UDbtn.Position(2)= Head6UDbtn.Position(2);
-        Head4UDbtn.Position(3) = 70;
-        Head4UDbtn.Position(4) = 25; 
+        head4UDButton.Position(1) = head6UDButton.Position(1) + head6UDButton.Position(3) + 1;
+        head4UDButton.Position(2) = head6UDButton.Position(2);
+        head4UDButton.Position(3) = 70;
+        head4UDButton.Position(4) = 25; 
         
-        Head2Tbtn.Position(1) = Head4LRbtn.Position(1)+Head4LRbtn.Position(3)+1;
-        Head2Tbtn.Position(2)= Head4LRbtn.Position(2);
-        Head2Tbtn.Position(3) = 70;
-        Head2Tbtn.Position(4) = 25;
+        head2TButton.Position(1) = head4LRButton.Position(1) + head4LRButton.Position(3) + 1;
+        head2TButton.Position(2) = head4LRButton.Position(2);
+        head2TButton.Position(3) = 70;
+        head2TButton.Position(4) = 25;
         
-        Head2Rbtn.Position(1) = Head4UDbtn.Position(1)+Head4UDbtn.Position(3)+1;
-        Head2Rbtn.Position(2)= Head4UDbtn.Position(2);
-        Head2Rbtn.Position(3) = 70;
-        Head2Rbtn.Position(4) = 25;     
+        head2RButton.Position(1) = head4UDButton.Position(1) + head4UDButton.Position(3) + 1;
+        head2RButton.Position(2) = head4UDButton.Position(2);
+        head2RButton.Position(3) = 70;
+        head2RButton.Position(4) = 25;     
 
+        % Update marker buttons
+        nextMarkerButton.Position(1) = figure.Position(3) - 340;
+        nextMarkerButton.Position(2) = nextFrameButton.Position(2);
+        nextMarkerButton.Position(3) = 30;
+        nextMarkerButton.Position(4) = 25;        
         
-        nextmarkerbtn.Position(1) = h.Position(3)-340;
-        nextmarkerbtn.Position(2) = nextframebtn.Position(2);
-        nextmarkerbtn.Position(3) = 30;
-        nextmarkerbtn.Position(4) = 25;        
-        
-        prevmarkerbtn.Position = nextmarkerbtn.Position;
-        prevmarkerbtn.Position(2) = nextmarkerbtn.Position(2)+25;
-        
-        updatedFramesDropdownMenu.Position = prevmarkerbtn.Position;
-        updatedFramesDropdownMenu.Position(1) = prevmarkerbtn.Position(1)+33;
-        updatedFramesDropdownMenu.Position(3) = 299;
+        prevMarkerButton.Position = nextMarkerButton.Position;
+        prevMarkerButton.Position(2) = nextMarkerButton.Position(2) + 25;
 
-        gotomarkerbtn.Position = nextmarkerbtn.Position;
-        gotomarkerbtn.Position(1) = nextmarkerbtn.Position(1)+33;
-        gotomarkerbtn.Position(3) = 150;
-        deletemarkerbtn.Position = gotomarkerbtn.Position;
-        deletemarkerbtn.Position(1) = gotomarkerbtn.Position(1)+150;
+        gotoMarkerButton.Position = nextMarkerButton.Position;
+        gotoMarkerButton.Position(1) = nextMarkerButton.Position(1) + 33;
+        gotoMarkerButton.Position(3) = 150;
+
+        deleteMarkerButton.Position = gotoMarkerButton.Position;
+        deleteMarkerButton.Position(1) = gotoMarkerButton.Position(1)+150;
+
+        % Update marker dropdown menu
+        markerDropdownMenu.Position = prevMarkerButton.Position;
+        markerDropdownMenu.Position(1) = prevMarkerButton.Position(1) + 33;
+        markerDropdownMenu.Position(3) = 299;
     end
     
     %% Closing Function
@@ -1034,7 +1083,7 @@ showframe;
         end
 
         if autosaveCheckBox.Value == 1
-            buttons(savebutton, []); % Click save button before proceeding
+            buttons(saveButton, []); % Click save button before proceeding
         end
         
         % Save settings file
