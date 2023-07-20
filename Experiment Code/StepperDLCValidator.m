@@ -552,9 +552,12 @@ showFrame;
     % switch case to determine which button was clicked, and then does
     % stuff accordingly.
     function onClick(b, e)
+        fileSwitch('off'); % Disable file switching
+
+        changeDisplay = 1;
         switch b
             case folderDisplay
-                return
+                changeDisplay = 0;
 %                 d = uigetdir(curdir);
 %                 if d==0;return;end                
 %                 [fnames,dispnames,cnames] = getvideonames(d);
@@ -590,18 +593,21 @@ showFrame;
                     loadVideo(filesList.Value);
                 end
             case progressBar
-                ix = round(b.Value);
-                if ix>numFrames;ix = numFrames;end
-                if ix<1; ix = 1;end
-                curFrame = setFrameIndex(ix);
+                val = round(b.Value);
+                if val > numFrames
+                    val = numFrames;
+                elseif val < 1
+                    val = 1;
+                end
+                curFrame = setFrameIndex(val);
             case playPauseButton
                 if strcmp(b.String,'>')
                     if frameIndex == numFrames
                         curFrame = setFrameIndex(1);
                     end
-                    b.String = string(char(449));
+                    b.String = string(char(449)); % Set to pause symbol
                     readOnlyPoints.Visible = 'on';
-                    for i = 1:numEditPoints
+                    for i = 1 : numEditPoints
                         editPoints{i}.Visible = 'off';
                     end
                     start(videoTimer);
@@ -614,7 +620,7 @@ showFrame;
                     b.String = '>';
                 end
             case stopButton
-                if strcmp(videoTimer.Running,'on')
+                if strcmp(videoTimer.Running, 'on')
                     stop(videoTimer);
                     readOnlyPoints.Visible = 'off';
                     for i = showPoints
@@ -624,29 +630,28 @@ showFrame;
                 end
                 curFrame = setFrameIndex(1);
             case nextFrameButton
-                if frameIndex<numFrames && strcmp(videoTimer.Running,'off')
-                    curFrame = setFrameIndex(frameIndex+1);
+                if frameIndex < numFrames && strcmp(videoTimer.Running,'off')
+                    curFrame = setFrameIndex(frameIndex + 1);
                 end
             case prevFrameButton
-                if frameIndex>1 && strcmp(videoTimer.Running,'off')
-                    curFrame = setFrameIndex(frameIndex-1);
+                if frameIndex > 1 && strcmp(videoTimer.Running, 'off')
+                    curFrame = setFrameIndex(frameIndex - 1);
                 end
             case frameDisplay
-                value = inputdlg('Pick Frame:','',[1,30],{num2str(frameIndex)});
-                if ~isempty(value) && all(isstrprop(strip(value{1}),'digit'))
-                    value = str2num(value{1});
-                    if value>0 && value<= numFrames
-                        curFrame=setFrameIndex(value);
+                value = inputdlg('Pick Frame:', '', [1 30], {num2str(frameIndex)});
+                if ~isempty(value) && all(isstrprop(strip(value{1}),'digit')) % Check if it is a digit
+                    value = str2double(value{1});
+                    if value > 0 && value <= numFrames
+                        curFrame = setFrameIndex(value);
                     else
-                        return
+                        changeDisplay = 0;
                     end
                 else
-                    return
+                    changeDisplay = 0;
                 end            
             case saveButton
-%                 assignin('base','controlpoints',outstruct);
-                fn = procNames{currentVideoIndex};
-                fly = struct;
+                procName = procNames{currentVideoIndex};
+                fly = struct();
                 fly.csv = csv;
                 fly.pts.X = xPoints;
                 fly.pts.Y = yPoints;
@@ -656,74 +661,114 @@ showFrame;
                 fly.track.frameidx = updatedFrames;
                 fly.track.bodymethod = bodyCalcMethod;
                 fly.track.headmethod = headCalcMethod;
-                save(fn,'fly');
-                if ~strcmp(displayNames{currentVideoIndex}(1),'*')
+                save(procName, 'fly');
+
+                % Add asterisk to indicate that it has been saved
+                if ~strcmp(displayNames{currentVideoIndex}(1), '*')
                     displayNames{currentVideoIndex} = ['*' displayNames{currentVideoIndex}];
-                    filesList.String= displayNames;
+                    filesList.String = displayNames;
                 end
-                return
+
+                changeDisplay = 0;
             case deleteButton
-                fn = procNames{filesList.Value};
-                if isfile(fn)                    
-                    delete(fn)
+                procName = procNames{filesList.Value};
+                if isfile(procName)                    
+                    delete(procName)
                 end
-                if strcmp(displayNames{filesList.Value}(1),'*')
-                    displayNames{filesList.Value} = displayNames{filesList.Value}(2:end);
-                    filesList.String= displayNames;
+
+                % Remove asterisk to indicate it has been unsaved
+                if strcmp(displayNames{filesList.Value}(1), '*')
+                    displayNames{filesList.Value} = displayNames{filesList.Value}(2 : end);
+                    filesList.String = displayNames;
                 end
             case quitButton
                 onClose;
-                return
+                changeDisplay = 0;
             case deleteMarkerButton
-                if isempty(updatedFrames);return;end
-                ix = markerDropdownMenu.Value;
-                revix = updatedFrames(ix);
-                xPoints(revix,:) = csv(revix,2:3:end);
-                yPoints(revix,:) = csv(revix,3:3:end);
-                pPoints(revix,:) = csv(revix,4:3:end);
-                updatedFrames(ix) = [];
-                updateFrames;
-                getHeadAngles;
-                getBodyAngles;
-                headDataLine.YData = headAngles;
-                bodyDataLine.YData = bodyAngles;
-                if ix>1
-                    markerDropdownMenu.Value = ix-1;
+                if isempty(updatedFrames)
+                    changeDisplay = 0;
+                else
+                    val = markerDropdownMenu.Value;
+                    revised = updatedFrames(val);
+
+                    % Pull from CSV file again
+                    xPoints(revised, :) = csv(revised, 2 : 3 : end);
+                    yPoints(revised, :) = csv(revised, 3 : 3 : end);
+                    pPoints(revised, :) = csv(revised, 4 : 3 : end);
+                    updatedFrames(val) = [];
+                    updateFrames();
+                    getHeadAngles();
+                    getBodyAngles();
+                    headDataLine.YData = headAngles;
+                    bodyDataLine.YData = bodyAngles;
+                    if val > 1
+                        markerDropdownMenu.Value = val - 1;
+                    end
                 end
             case gotoMarkerButton
-                if isempty(updatedFrames);return;end
-                curFrame = setFrameIndex(updatedFrames(markerDropdownMenu.Value));
+                if isempty(updatedFrames)
+                    changeDisplay = 0;
+                else
+                    curFrame = setFrameIndex(updatedFrames(markerDropdownMenu.Value));
+                end
             case nextMarkerButton
-                if isempty(updatedFrames);return;end
-                if markerDropdownMenu.Value==length(updatedFrames)
-                    ix = 1;
+                if isempty(updatedFrames)
+                    changeDisplay = 0;
                 else
-                    ix = markerDropdownMenu.Value+1;
+                    if markerDropdownMenu.Value == length(updatedFrames)
+                        val = 1;
+                    else
+                        val = markerDropdownMenu.Value + 1;
+                    end
+                    markerDropdownMenu.Value = val;
+                    curFrame = setFrameIndex(updatedFrames(val));
                 end
-                markerDropdownMenu.Value = ix;
-                curFrame = setFrameIndex(updatedFrames(ix));
             case prevMarkerButton
-                if isempty(updatedFrames);return;end
-                if markerDropdownMenu.Value==1
-                    ix = length(updatedFrames);
+                if isempty(updatedFrames)
+                    changeDisplay = 0;
                 else
-                    ix = markerDropdownMenu.Value-1;
+                    if markerDropdownMenu.Value == 1
+                        val = length(updatedFrames);
+                    else
+                        val = markerDropdownMenu.Value - 1;
+                    end
+                    markerDropdownMenu.Value = val;
+                    curFrame = setFrameIndex(updatedFrames(val));
                 end
-                markerDropdownMenu.Value = ix;
-                curFrame = setFrameIndex(updatedFrames(ix));
             case dataAxis
-                if e.Button==1
-                    ix = round(e.IntersectionPoint(1));
-                    if ix>numFrames;ix = numFrames;end
-                    if ix<1; ix = 1;end
-                    curFrame = setFrameIndex(ix);
+                if e.Button == 1
+                    % Get x coordinate of the place touched
+                    val = round(e.IntersectionPoint(1));
+                    if val > numFrames
+                        val = numFrames;
+                    elseif val < 1
+                        val = 1;
+                    end
+                    curFrame = setFrameIndex(val);
                 end
             otherwise
-                disp('!');
+                error('I do not know how you did this, but you did something wrong. Contact your local Mike Rauscher for assistance');
         end
-        if strcmp(videoTimer.Running,'off')
-            showFrame;
+
+        % If display needs to be changed
+        if strcmp(videoTimer.Running, 'off') && changeDisplay
+            showFrame();
         end
+
+        fileSwitch('on'); % Enable file switching
+    end
+
+    %% File Switching GUI Function
+    % This function fixes the bug where autosave will accidentally save the
+    % wrong information for the wrong video. To remedy this issue, this
+    % function will block the file switching GUI until the GUI is finished
+    % executing.
+    function fileSwitch(status)
+        prevFileButton.Enable = status;
+        nextFileButton.Enable = status;
+        deleteButton.Enable = status;
+        saveButton.Enable = status;
+        filesList.Enable = status;
     end
 
     %% Load Video Function
@@ -745,19 +790,15 @@ showFrame;
         progressBar.Max = numFrames;
         
         curFrame = setFrameIndex(1);
-        im.CData = curFrame;
+        im = image(videoAxis, curFrame); % Add frame to video
 
-        % Coder's note: It's faster to just replace the CData than to make 
-        % a new image. This will work for the same size videos, but if
-        % you're dealing with different size videos, then this is not
-        % guaranteed to work. - nxz157, 7/20/2023
-        
         % Update video frame
-        hold(videoAxis, 'on');
         clear('bodyVideoLine');
         clear('headVideoLine');
         clear('readOnlyPoints');
         clear('editPoints');
+        
+        hold(videoAxis, 'on');
         bodyVideoLine = plot(videoAxis, [nan nan], [nan nan], '--', ...
             'Color', BODY_COLOR, 'LineWidth', 1.5);
         headVideoLine = plot(videoAxis, [nan nan], [nan nan], ...
@@ -778,16 +819,16 @@ showFrame;
         editPoints = cell(1, numEditPoints);
     
         % Loop through each point that can be displayed
-        for j = 1 : numEditPoints
+        for k = 1 : numEditPoints
             newPoint = images.roi.Point(videoAxis);
-            newPoint.Color = COLOR_MAP(j, :);
-            newPoint.Label = BODY_NAMES{j};
+            newPoint.Color = COLOR_MAP(k, :);
+            newPoint.Label = BODY_NAMES{k};
             newPoint.LabelVisible = 'hover';
             newPoint.Deletable = 0;
             addlistener(newPoint, 'MovingROI', @eventcb);
             addlistener(newPoint, 'ROIMoved', @eventcb);
     
-            editPoints{j} = newPoint;
+            editPoints{k} = newPoint;
         end
 
         xticks(videoAxis, []);
