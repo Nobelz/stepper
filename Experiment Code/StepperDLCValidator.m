@@ -18,6 +18,7 @@ function StepperDLCValidator()
     EDIT_COLOR = [26, 152, 80] ./ 255;
     DEFAULT_CALC_METHOD = [1 1];
     COLOR_MAP = hsv(13); % Color map used for points
+    LOOP = 0; % Whether to loop back to the beginning for next frames
 
     BODY_NAMES = {'LeftAntMed', 'LeftAntDist', 'RightAntMed', ...
         'RightAntDist', 'LeftWingRoot', 'RightWingRoot', ...
@@ -38,7 +39,7 @@ function StepperDLCValidator()
             autosave = settings.autosave;
             directory = settings.dir;
     
-            [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
+            [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
     
             lastVideoIndex = find(strcmp(videoNames, settings.lastfile), 1); % Find the last video open
             
@@ -49,7 +50,7 @@ function StepperDLCValidator()
         else
             % Have user get the correct directory
             directory = uigetdir('.', 'Select Video Folder');
-            [videoNames, displayNames, csvNames, saveNames] = getVideoNames(directory);
+            [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
     
             autosave = 0;
             lastVideoIndex = 1; % Start at first video
@@ -66,7 +67,6 @@ function StepperDLCValidator()
     end
 
     %% Define Variables
-    fly = [];
     updatedFrames = []; % Stores the frame numbers of the frames updated using the validator
     videoReader = VideoReader(videoNames{lastVideoIndex}); % Load last loaded file, or first file if last loaded doesn't exist 
     videoTimer = timer('Period', .01, 'TimerFcn', @nextFrame, 'ExecutionMode', 'fixedRate'); % Initiate video player on 100 fps
@@ -74,30 +74,36 @@ function StepperDLCValidator()
     headCalcMethod = DEFAULT_CALC_METHOD(2);
     showPoints = []; % Specifies which indices of BODY_NAMES should be shown in the video
     frameIndex = 1; % Specifies the current frame index, set at the start of the video in the beginning (frame 1)
-    csv = []; % Stores the csv representation of all body points of the fly
     
-    Xpts = [];
-Ypts = [];
-Pval = [];
-HeadAng = [];HeadPts = [];
-BodyAng = [];BodyPts = [];
+    fly = struct(); % Stores the fly struct
+    csv = []; % Stores the csv representation of all body points of the fly
+    xPoints = []; % Stores the x coords of each of the body points of the fly
+    yPoints = []; % Stores the y coords of each of the body points of the fly
+    pPoints = []; % Stores the probabilies of each of the body points of the fly, as determined by the neural network
+    
+    headAngles = []; % Stores the head angles for each frame
+    headLinePoints = []; % Stores the points to draw the line for the head
+    bodyAngles = []; % Stores the body angles for each frame
+    bodyLinePoints = []; % Stores the points to draw the line for the body
 
-loop = false;
+    currentVideoIndex = lastVideoIndex; % Stores the index of the current video being displayed
 
-cix = lastVideoIndex;
-if isfile(saveNames{cix})
-    fly = [];
-    load(saveNames{cix});
-    csv = fly.csv;
-    Xpts = fly.pts.X;
-    Ypts = fly.pts.Y;
-    Pval = fly.pts.P;
-    updatedFrames = fly.track.frameidx;
-    bodyCalcMethod = fly.track.bodymethod;
-    headCalcMethod = fly.track.headmethod;
-else
-    loadcsv;
-end
+    loadFly(currentVideoIndex);
+
+    % if isfile(procNames{currentVideoIndex}) % Check if video proc file exists
+    %     % Pull fly data if it exists
+    %     load(procNames{currentVideoIndex}, 'fly'); % Load fly struct
+    %     csv = fly.csv;
+    %     xPoints = fly.pts.X;
+    %     yPoints = fly.pts.Y;
+    %     pPoints = fly.pts.P;
+    % 
+    %     updatedFrames = fly.track.frameidx;
+    %     bodyCalcMethod = fly.track.bodymethod;
+    %     headCalcMethod = fly.track.headmethod;
+    % else
+    %     loadCSV();
+    % end
 getheadang;
 getbodyang;
 numFrames = videoReader.NumFrames;
@@ -128,8 +134,8 @@ ylim(dataX,[-180 180]);
 yticks(dataX,-180:45:180);
 xlabel(dataX,'Frame #');
 hold(dataX,'on');
-bodyline = plot(dataX,1:numFrames,BodyAng,'--','Color',BODY_COLOR,'LineWidth',2.5);
-headline = plot(dataX,1:numFrames,HeadAng,'Color',HEAD_COLOR,'LineWidth',1);
+bodyline = plot(dataX,1:numFrames,bodyAngles,'--','Color',BODY_COLOR,'LineWidth',2.5);
+headline = plot(dataX,1:numFrames,headAngles,'Color',HEAD_COLOR,'LineWidth',1);
 fline = xline(dataX,1,'LineWidth',1.5);
 dataX.XGrid = 'on';
 dataX.YGrid = 'on';
@@ -137,8 +143,8 @@ hold(dataX,'off');
 dataX.ButtonDownFcn = @buttons;
 
 hold(zoomax,'on')
-bodyzmline = plot(zoomax,1:numFrames,BodyAng,'--','Color',BODY_COLOR,'LineWidth',2.5);
-headzmline = plot(zoomax,1:numFrames,HeadAng,'Color',HEAD_COLOR,'LineWidth',1);
+bodyzmline = plot(zoomax,1:numFrames,bodyAngles,'--','Color',BODY_COLOR,'LineWidth',2.5);
+headzmline = plot(zoomax,1:numFrames,headAngles,'Color',HEAD_COLOR,'LineWidth',1);
 zmfline = xline(zoomax,1,'LineWidth',1);
 zoomax.XGrid = 'on';
 zoomax.YGrid = 'on';
@@ -251,7 +257,7 @@ prevmarkerbtn = uicontrol(c,'Style','pushbutton','String',string(char(923)),...
 szch(c);
 c.WindowState='maximized';
 
-if isfile(saveNames{lastVideoIndex})
+if isfile(procNames{lastVideoIndex})
     updateFrames;
 end
 curframe = setFrameIndex(1);
@@ -275,8 +281,8 @@ showframe;
             end
         end
         getbodyang();
-        bodyline.YData = BodyAng;
-        bodyzmline.YData =BodyAng;
+        bodyline.YData = bodyAngles;
+        bodyzmline.YData =bodyAngles;
         
         mx = find(h==headbtns);
         if ~isempty(mx)
@@ -290,8 +296,8 @@ showframe;
             end
         end
         getheadang()
-        headline.YData = HeadAng;
-        headzmline.YData = HeadAng;
+        headline.YData = headAngles;
+        headzmline.YData = headAngles;
         if strcmp(videoTimer.Running,'off')
             for i = 1:uptopt
                 if ismember(i,showPoints)
@@ -307,7 +313,7 @@ showframe;
     %% Next Frame Function
     function nextFrame(~, ~)
         if (frameIndex + 1) > numFrames
-            if loop
+            if LOOP
                 curframe = setFrameIndex(1);
             else
                 stop(videoTimer);
@@ -321,15 +327,15 @@ showframe;
 
     function showframe()
         im.CData = curframe;
-        xdat = Xpts(frameIndex,:);
-        ydat = Ypts(frameIndex,:);
-        badix = Pval(frameIndex,:)<.90;
+        xdat = xPoints(frameIndex,:);
+        ydat = yPoints(frameIndex,:);
+        badix = pPoints(frameIndex,:)<.90;
         
-        bpts = BodyPts(frameIndex,:);
+        bpts = bodyLinePoints(frameIndex,:);
         bodyaxline.XData = bpts([1 3]);
         bodyaxline.YData = bpts([2 4]);
         
-        hpts = HeadPts(frameIndex,:);
+        hpts = headLinePoints(frameIndex,:);
         headaxline.XData = hpts([1 3]);
         headaxline.YData = hpts([2 4]);
         if strcmp(videoTimer.Running,'on')
@@ -352,103 +358,103 @@ showframe;
     end
 
     function getbodyang()
-        X = Xpts;
-        Y = Ypts;
+        X = xPoints;
+        Y = yPoints;
         switch bodyCalcMethod
             case 1 %7Pt LR
                 showPoints = [showPoints 5:11];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 upt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
                 dnt = [mean(X(:,[5,6,10,11]),2) mean(Y(:,[5,6,10,11]),2)];
-                BodyAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
+                bodyAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 2 %6PT UD
                 showPoints = [showPoints 5:10];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 upt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
                 dnt = [mean(X(:,[5,6,10]),2) mean(Y(:,[5,6,10]),2)];
-                BodyAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
+                bodyAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 3 %4Pt LR
                 showPoints = [showPoints 5:8];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 Lt = [mean(X(:,[5,7]),2) mean(Y(:,[5,7]),2)];
                 Rt = [mean(X(:,[6,8]),2) mean(Y(:,[6,8]),2)];
-                BodyAng = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
+                bodyAngles = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
             case 4 %4Pt UD
                 showPoints = [showPoints 5:8];
                 ctr = [mean(X(:,5:8),2) mean(Y(:,5:8),2)];
                 upt = [mean(X(:,[7,8]),2) mean(Y(:,[7,8]),2)];
                 dnt = [mean(X(:,[5,6]),2) mean(Y(:,[5,6]),2)];
-                BodyAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
+                bodyAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 5 %Shoulders
                 showPoints = [showPoints 7:8];
                 ctr = [mean(X(:,[7,8]),2) mean(Y(:,[7,8]),2)];
-                BodyAng = atan2d(Y(:,8)-Y(:,7),X(:,8)-X(:,7))+90;
+                bodyAngles = atan2d(Y(:,8)-Y(:,7),X(:,8)-X(:,7))+90;
             case 6 %WingRoots
                 showPoints = [showPoints 5:6];
                 ctr = [mean(X(:,[5,6]),2) mean(Y(:,[5,6]),2)];
-                BodyAng = atan2d(Y(:,6)-Y(:,5),X(:,6)-X(:,5))+90;
+                bodyAngles = atan2d(Y(:,6)-Y(:,5),X(:,6)-X(:,5))+90;
         end
         showPoints = unique(showPoints);
-        BodyPts = [ctr(:,1) + 200*cosd(BodyAng) ctr(:,2) + 200*sind(BodyAng) ctr(:,1) - 200*cosd(BodyAng) ctr(:,2) - 200*sind(BodyAng)];
-        BodyAng = BodyAng-BodyAng(1);
-        BodyAng = wrapTo180(BodyAng);
+        bodyLinePoints = [ctr(:,1) + 200*cosd(bodyAngles) ctr(:,2) + 200*sind(bodyAngles) ctr(:,1) - 200*cosd(bodyAngles) ctr(:,2) - 200*sind(bodyAngles)];
+        bodyAngles = bodyAngles-bodyAngles(1);
+        bodyAngles = wrapTo180(bodyAngles);
     end
 
     function getheadang()
-        X = Xpts;
-        Y = Ypts;
+        X = xPoints;
+        Y = yPoints;
         switch headCalcMethod
             case 1 %Head 7UD
                 showPoints = [showPoints,1:4,7:9];
                 ctr = [mean(X(:,[1:4 7:9]),2) mean(Y(:,[1:4 7:9]),2)];
                 upt = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 dnt = [mean(X(:,[7:9]),2) mean(Y(:,[7:9]),2)];
-                HeadAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
+                headAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 2 %Head 6UD
                 showPoints = [showPoints,1:4,7:8];
                 ctr = [mean(X(:,[1:4 7:8]),2) mean(Y(:,[1:4 7:8]),2)];
                 upt = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 dnt = [mean(X(:,[7:8]),2) mean(Y(:,[7:8]),2)];
-                HeadAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
+                headAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 3 %Head 4LR
                 showPoints = [showPoints 1:4];
                 ctr = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 Lt = [mean(X(:,[1,2]),2) mean(Y(:,[1,2]),2)];
                 Rt = [mean(X(:,[3,4]),2) mean(Y(:,[3,4]),2)];
-                HeadAng = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
+                headAngles = (atan2d(Lt(:,2)-Rt(:,2),Lt(:,1)-Rt(:,1)))+90;
             case 4 %Head 4UD
                 showPoints = [showPoints 1:4];
                 ctr = [mean(X(:,[1:4]),2) mean(Y(:,[1:4]),2)];
                 upt = [mean(X(:,[2,4]),2) mean(Y(:,[2,4]),2)];
                 dnt = [mean(X(:,[1,3]),2) mean(Y(:,[1,3]),2)];
-                HeadAng = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
+                headAngles = (atan2d(upt(:,2)-dnt(:,2),upt(:,1)-dnt(:,1)));
             case 5 %Tips only
                 showPoints = [showPoints 2,4];
                 ctr = [mean(X(:,[2,4]),2) mean(Y(:,[2,4]),2)];
-                HeadAng = atan2d(Y(:,4)-Y(:,2),X(:,4)-X(:,2))+90;
+                headAngles = atan2d(Y(:,4)-Y(:,2),X(:,4)-X(:,2))+90;
             case 6 %Roots only
                 showPoints = [showPoints 1,3];
                 ctr = [mean(X(:,[1,3]),2) mean(Y(:,[1,3]),2)];
-                HeadAng = atan2d(Y(:,3)-Y(:,1),X(:,3)-X(:,1))+90;
+                headAngles = atan2d(Y(:,3)-Y(:,1),X(:,3)-X(:,1))+90;
         end
         showPoints = unique(showPoints);
-        HeadPts = [ctr(:,1) + 30*cosd(HeadAng) ctr(:,2) + 30*sind(HeadAng) ctr(:,1) - 30*cosd(HeadAng) ctr(:,2) - 30*sind(HeadAng)];
-        HeadAng = HeadAng-HeadAng(1);
-        HeadAng = wrapTo180(HeadAng);
+        headLinePoints = [ctr(:,1) + 30*cosd(headAngles) ctr(:,2) + 30*sind(headAngles) ctr(:,1) - 30*cosd(headAngles) ctr(:,2) - 30*sind(headAngles)];
+        headAngles = headAngles-headAngles(1);
+        headAngles = wrapTo180(headAngles);
     end
 
     function eventcb(h,e)
         pix = find(strcmp(BODY_NAMES,h.Label));
-        Xpts(frameIndex,pix) =  h.Position(1);
-        Ypts(frameIndex,pix) =  h.Position(2);
-        Pval(frameIndex,pix) = inf;%will still be higher than any cutoff but also unambiguously an edited point
+        xPoints(frameIndex,pix) =  h.Position(1);
+        yPoints(frameIndex,pix) =  h.Position(2);
+        pPoints(frameIndex,pix) = inf;%will still be higher than any cutoff but also unambiguously an edited point
         getbodyang();
         getheadang();
         if strcmp(e.EventName,'ROIMoved')
-            bodyline.YData = BodyAng;
-            bodyzmline.YData = BodyAng;
-            headline.YData = HeadAng;
-            headzmline.YData = HeadAng;
+            bodyline.YData = bodyAngles;
+            bodyzmline.YData = bodyAngles;
+            headline.YData = headAngles;
+            headzmline.YData = headAngles;
             mx = find(updatedFrames==frameIndex,1);
             if isempty(mx)
                 updatedFrames = [updatedFrames; frameIndex];
@@ -476,7 +482,7 @@ showframe;
 %                 fileslist.String = dispnames;
 %                 loadvid(1);
             case fileslist
-                if b.Value~=cix && autosavecheck.Value == 1
+                if b.Value~=currentVideoIndex && autosavecheck.Value == 1
                     buttons(savebutton,[]);
                 end
                 loadvid(b.Value);
@@ -553,25 +559,25 @@ showframe;
                 end            
             case savebutton
 %                 assignin('base','controlpoints',outstruct);
-                fn = saveNames{cix};
+                fn = procNames{currentVideoIndex};
                 fly = struct;
                 fly.csv = csv;
-                fly.pts.X = Xpts;
-                fly.pts.Y = Ypts;
-                fly.pts.P = Pval;
-                fly.proc.HeadAng = HeadAng;
-                fly.proc.BodyAng = BodyAng;
+                fly.pts.X = xPoints;
+                fly.pts.Y = yPoints;
+                fly.pts.P = pPoints;
+                fly.proc.HeadAng = headAngles;
+                fly.proc.BodyAng = bodyAngles;
                 fly.track.frameidx = updatedFrames;
                 fly.track.bodymethod = bodyCalcMethod;
                 fly.track.headmethod = headCalcMethod;
                 save(fn,'fly');
-                if ~strcmp(displayNames{cix}(1),'*')
-                    displayNames{cix} = ['*' displayNames{cix}];
+                if ~strcmp(displayNames{currentVideoIndex}(1),'*')
+                    displayNames{currentVideoIndex} = ['*' displayNames{currentVideoIndex}];
                     fileslist.String= displayNames;
                 end
                 return
             case deletebutton
-                fn = saveNames{fileslist.Value};
+                fn = procNames{fileslist.Value};
                 if isfile(fn)                    
                     delete(fn)
                 end
@@ -586,15 +592,15 @@ showframe;
                 if isempty(updatedFrames);return;end
                 ix = updatedFramesDropdownMenu.Value;
                 revix = updatedFrames(ix);
-                Xpts(revix,:) = csv(revix,2:3:end);
-                Ypts(revix,:) = csv(revix,3:3:end);
-                Pval(revix,:) = csv(revix,4:3:end);
+                xPoints(revix,:) = csv(revix,2:3:end);
+                yPoints(revix,:) = csv(revix,3:3:end);
+                pPoints(revix,:) = csv(revix,4:3:end);
                 updatedFrames(ix) = [];
                 updateFrames;
                 getheadang;
                 getbodyang;
-                headline.YData = HeadAng;
-                bodyline.YData = BodyAng;
+                headline.YData = headAngles;
+                bodyline.YData = bodyAngles;
                 if ix>1
                     updatedFramesDropdownMenu.Value = ix-1;
                 end
@@ -639,7 +645,7 @@ showframe;
             stop(videoTimer);
             playPauseButton.String = '>';
         end        
-        cix = ix;
+        currentVideoIndex = ix;
         videoReader = VideoReader(videoNames{ix});
         hyp = sqrt(videoReader.Width^2 + videoReader.Height^2);
         numFrames = videoReader.NumFrames;
@@ -675,19 +681,9 @@ showframe;
             addlistener(edpts{end},'MovingROI',@eventcb);
             addlistener(edpts{end},'ROIMoved',@eventcb);
         end
-        if isfile(saveNames{ix})
-            fly = [];
-            load(saveNames{ix});
-            csv = fly.csv;
-            Xpts = fly.pts.X;
-            Ypts = fly.pts.Y;
-            Pval = fly.pts.P;
-            updatedFrames = fly.track.frameidx;
-            bodyCalcMethod = fly.track.bodymethod;
-            headCalcMethod = fly.track.headmethod;
-        else
-            loadcsv;
-        end
+
+        loadFly(ix);
+        
 %         pts = plot(vidax,nan(1,13),nan(1,13),'m*');
         hold(vidax,'off');
         xticks(vidax,[]);
@@ -698,13 +694,13 @@ showframe;
         getbodyang;
         hold(dataX,'on');
         bodyline.XData = 1:numFrames;
-        bodyline.YData = BodyAng;
+        bodyline.YData = bodyAngles;
         headline.XData = 1:numFrames;
-        headline.YData = HeadAng;
+        headline.YData = headAngles;
         bodyzmline.XData = 1:numFrames;
-        bodyzmline.YData = BodyAng;
+        bodyzmline.YData = bodyAngles;
         headzmline.XData = 1:numFrames;
-        headzmline.YData = HeadAng;
+        headzmline.YData = headAngles;
         zoomax.XTick = 1:numFrames;
 %         bodyline = plot(datax,1:numframes,BodyAng,'--','Color',BCOLOR,'LineWidth',1.5);
 %         headline = plot(datax,1:numframes,HeadAng,'Color',HCOLOR,'LineWidth',2.5);
@@ -712,13 +708,6 @@ showframe;
         updatetrackingparams(bodybtns(bodyCalcMethod));
         updateFrames
         showframe;
-    end
-
-    function loadcsv()
-        csv = readmatrix(csvNames{cix},'Range',4);
-        Xpts = csv(:,2:3:end);
-        Ypts = csv(:,3:3:end);
-        Pval = csv(:,4:3:end);
     end
     
     %% Update Frames Function
@@ -776,6 +765,35 @@ showframe;
         end
     end
     
+    %% Load Fly Function
+    % This function loads the fly struct from the PROC file if created;
+    % otherwise, it calls loadCSV() to get the X and Y points from the DLC
+    % CSV.
+    function loadFly(index)
+        if isfile(procNames{index}) % Check if fly struct already exists in proc file
+            load(procNames{index}, 'fly'); % Load fly struct
+            csv = fly.csv;
+            xPoints = fly.pts.X;
+            yPoints = fly.pts.Y;
+            pPoints = fly.pts.P;
+            updatedFrames = fly.track.frameidx;
+            bodyCalcMethod = fly.track.bodymethod;
+            headCalcMethod = fly.track.headmethod;
+        else
+            loadCSV();
+        end
+    end
+
+    %% Load CSV File Function
+    % This function loads the DLC CSV file and pulls the X and Y points, as
+    % well as the confidence.
+    function loadCSV()
+        csv = readmatrix(csvNames{currentVideoIndex}, 'Range', 4);
+        xPoints = csv(:, 2 : 3 : end);
+        yPoints = csv(:, 3 : 3 : end);
+        pPoints = csv(:, 4 : 3 : end);
+    end
+
     %% Set Frame Index Function
     % This function sets the frame index to the specified index, changing
     % the progress bar, the display, and the video reader to reflect that
