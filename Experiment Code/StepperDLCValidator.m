@@ -155,9 +155,9 @@ function StepperDLCValidator()
     % Plot video axis
     im = image(videoAxis, curFrame); % Add frame to video
     hold(videoAxis, 'on');
-    bodyaxline = plot(videoAxis, [nan nan], [nan nan], '--', ...
+    bodyLine = plot(videoAxis, [nan nan], [nan nan], '--', ...
         'Color', BODY_COLOR, 'LineWidth', 2);
-    headaxline = plot(videoAxis, [nan nan], [nan nan], ...
+    headLine = plot(videoAxis, [nan nan], [nan nan], ...
         'Color', HEAD_COLOR, 'LineWidth', 2);
     
     % Show wings if necessary
@@ -303,7 +303,7 @@ if isfile(procNames{lastVideoIndex})
     updateFrames;
 end
 curFrame = setFrameIndex(1);
-showframe;
+showFrame;
     
     %% Update Tracking Parameters Function
     function updateTrackingParameters(h, ~)
@@ -313,44 +313,53 @@ showframe;
         else
             showPoints = [];
         end
-        mx = find(h==bodyButtons);
-        if ~isempty(mx)
-            bodyCalcMethod = mx;
+        
+        % Update body data
+        selectedButton = find(h == bodyButtons); % Find which button is selected
+        if ~isempty(selectedButton)
+            bodyCalcMethod = selectedButton; % selectedButton will only be empty on startup
         end
-        for i = 1:6
-            if i==bodyCalcMethod
-                bodyButtons(i).Enable = 'off';
+
+        for i = 1 : 6
+            if i == bodyCalcMethod
+                bodyButtons(i).Enable = 'off'; % Disable the button that you just clicked
             else
                 bodyButtons(i).Enable = 'on';
             end
         end
+        
         getBodyAngle();
         bodyLine.YData = bodyAngles;
-        zoomBody.YData =bodyAngles;
+        zoomBody.YData = bodyAngles;
         
-        mx = find(h==headButtons);
-        if ~isempty(mx)
-            headCalcMethod = mx;
+        % Update head data
+        selectedButton = find(h == headButtons);
+        if ~isempty(selectedButton)
+            headCalcMethod = selectedButton;
         end
-        for i = 1:4
-            if i==headCalcMethod
+
+        for i = 1 : 4
+            if i == headCalcMethod
                 headButtons(i).Enable = 'off';
             else
                 headButtons(i).Enable = 'on';
             end
         end
-        getHeadAngle()
+
+        getHeadAngle();
         headLine.YData = headAngles;
         zoomHead.YData = headAngles;
-        if strcmp(videoTimer.Running,'off')
-            for i = 1:numEditPoints
-                if ismember(i,showPoints)
+
+        % Update which poins are shown if the video is not playing
+        if strcmp(videoTimer.Running, 'off')
+            for i = 1 : numEditPoints
+                if ismember(i, showPoints)
                     editPoints{i}.Visible = 'on';
                 else
                     editPoints{i}.Visible = 'off';
                 end
             end
-            showframe;
+            showFrame(); % Update frame
         end
     end
 
@@ -366,39 +375,53 @@ showframe;
         else
             curFrame = setFrameIndex(frameIndex+1);
         end
-        showframe();
+        showFrame();
     end
+    
+    %% Show Frame Function
+    % This function updates the frame according to different tracking
+    % calcultions, and displays the points
+    function showFrame()
+        % Pull data from frame index
+        im.CData = curFrame; % Update image data
+        xData = xPoints(frameIndex, :);
+        yData = yPoints(frameIndex, :);
+        badPoints = pPoints(frameIndex,:) < .90;
+        
+        % Get body and head points
+        bodyPoints = bodyLinePoints(frameIndex, :);
+        bodyLine.XData = bodyPoints([1 3]);
+        bodyLine.YData = bodyPoints([2 4]);
+        
+        headPoints = headLinePoints(frameIndex,:);
+        headLine.XData = headPoints([1 3]);
+        headLine.YData = headPoints([2 4]);
 
-    function showframe()
-        im.CData = curFrame;
-        xdat = xPoints(frameIndex,:);
-        ydat = yPoints(frameIndex,:);
-        badix = pPoints(frameIndex,:)<.90;
-        
-        bpts = bodyLinePoints(frameIndex,:);
-        bodyaxline.XData = bpts([1 3]);
-        bodyaxline.YData = bpts([2 4]);
-        
-        hpts = headLinePoints(frameIndex,:);
-        headaxline.XData = hpts([1 3]);
-        headaxline.YData = hpts([2 4]);
         if strcmp(videoTimer.Running,'on')
-            readOnlyPoints.XData = xdat(showPoints);
-            readOnlyPoints.YData = ydat(showPoints);
+            readOnlyPoints.XData = xData(showPoints);
+            readOnlyPoints.YData = yData(showPoints);
         else
-            for i = 1:numEditPoints
-                editPoints{i}.Position = [xdat(i) ydat(i)];
+            for i = 1 : numEditPoints
+                editPoints{i}.Position = [xData(i) yData(i)];
             end
         end
-        xdat(badix) = nan;
-        ydat(badix) = nan;
+
+        % Get rid of bad points
+        xData(badPoints) = nan;
+        yData(badPoints) = nan;
+
+        % Update wing lines if they should be displayed
         if SHOW_WINGS
-            wingLline.XData = xdat([5 12]);wingLline.YData = ydat([5 12]);
-            wingRline.XData = xdat([6 13]);wingRline.YData = ydat([6 13]);
+            wingLline.XData = xData([5 12]);
+            wingLline.YData = yData([5 12]);
+            wingRline.XData = xData([6 13]);
+            wingRline.YData = yData([6 13]);
         end
         
-        zoomAxis.XLim = [frameIndex-10 frameIndex+10];
-        drawnow limitrate;
+        % Update zoom axis x range
+        zoomAxis.XLim = [frameIndex - 10 frameIndex + 10];
+
+        drawnow limitrate; % Update GUI display
     end
     
     %% Get Body Angles Function
@@ -518,7 +541,7 @@ showframe;
                 updateFrames;
             end
         end
-        showframe();
+        showFrame();
         
     end
 
@@ -693,7 +716,7 @@ showframe;
                 disp('!');
         end
         if strcmp(videoTimer.Running,'off')
-            showframe;
+            showFrame;
         end
     end
 
@@ -712,12 +735,12 @@ showframe;
         curFrame=setFrameIndex(1);
         im = image(videoAxis,curFrame);
         hold(videoAxis,'on');
-        clear('bodyaxline');
-        clear('headaxline');
+        clear('bodyLine');
+        clear('headLine');
         clear('readOnlyPoints');
         clear('editPoints');
-        bodyaxline = plot(videoAxis,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',1.5);
-        headaxline = plot(videoAxis,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2.5);
+        bodyLine = plot(videoAxis,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',1.5);
+        headLine = plot(videoAxis,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2.5);
         if SHOW_WINGS
             wingLline = plot(videoAxis,[nan nan],[nan nan],'Color','r','LineWidth',2);
             wingRline = plot(videoAxis,[nan nan],[nan nan],'Color','r','LineWidth',2);
@@ -764,7 +787,7 @@ showframe;
         hold(dataAxis,'off');
         updateTrackingParameters(bodyButtons(bodyCalcMethod));
         updateFrames
-        showframe;
+        showFrame;
     end
     
     %% Update Frames Function
@@ -897,10 +920,10 @@ showframe;
     %% Update GUI Function
     % Whenever the size of the window is changed, this function adjusts the
     % components of the GUI to fit the newly updated window.
-    function onSizeChanged(figure, ~)
+    function onSizeChanged(h, ~)
         % Update video reader
-        videoAxis.Position(2) = figure.Position(4) * .3;
-        videoAxis.Position(4) = figure.Position(4) - videoAxis.Position(2) + 1;
+        videoAxis.Position(2) = h.Position(4) * .3;
+        videoAxis.Position(4) = h.Position(4) - videoAxis.Position(2) + 1;
         videoAxis.Position(3) = videoAxis.Position(4) * 4 / 3;
         videoAxis.Position(1) = 0;
 
@@ -950,8 +973,8 @@ showframe;
         % Update data window
         dataAxis.Position(1) = videoAxis.Position(3) + 35;
         dataAxis.Position(2) = 75;
-        dataAxis.Position(3) = figure.Position(3) - videoAxis.Position(3) - 35; 
-        dataAxis.Position(4) = figure.Position(4) - 430;
+        dataAxis.Position(3) = h.Position(3) - videoAxis.Position(3) - 35; 
+        dataAxis.Position(4) = h.Position(4) - 430;
 
         % Update zoomed data window
         zoomAxis.Position(1) = dataAxis.Position(1);
@@ -961,7 +984,7 @@ showframe;
 
         % Update video buttons
         playPauseButton.Position(1) = videoAxis.Position(3) + 5;
-        playPauseButton.Position(2) = figure.Position(4) - 55;
+        playPauseButton.Position(2) = h.Position(4) - 55;
         playPauseButton.Position(3) = 50;
         playPauseButton.Position(4) = 50;
 
@@ -970,14 +993,14 @@ showframe;
 
         % Update frame display buttons
         frameDisplay.Position(1) = stopButton.Position(1) + stopButton.Position(3) + 7;
-        frameDisplay.Position(2) = figure.Position(4) - 30;
-        frameDisplay.Position(3) = figure.Position(3) - frameDisplay.Position(1) - 7;
+        frameDisplay.Position(2) = h.Position(4) - 30;
+        frameDisplay.Position(3) = h.Position(3) - frameDisplay.Position(1) - 7;
         frameDisplay.Position(4) = 25;
 
         % Update progress bar
         progressBar.Position(1) = stopButton.Position(1) + stopButton.Position(3) + 7;
-        progressBar.Position(2) = figure.Position(4) - 55;
-        progressBar.Position(3) = figure.Position(3) - progressBar.Position(1) - 7;
+        progressBar.Position(2) = h.Position(4) - 55;
+        progressBar.Position(3) = h.Position(3) - progressBar.Position(1) - 7;
         progressBar.Position(4) = 25;
         
         % Update frame buttons
@@ -1049,7 +1072,7 @@ showframe;
         head2RButton.Position(4) = 25;     
 
         % Update marker buttons
-        nextMarkerButton.Position(1) = figure.Position(3) - 340;
+        nextMarkerButton.Position(1) = h.Position(3) - 340;
         nextMarkerButton.Position(2) = nextFrameButton.Position(2);
         nextMarkerButton.Position(3) = 30;
         nextMarkerButton.Position(4) = 25;        
