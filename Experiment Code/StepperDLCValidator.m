@@ -201,8 +201,6 @@ function StepperDLCValidator()
         'String', directory, 'ButtonDownFcn', @onClick, ...
         'Position', [0 0 480 40], 'Enable', 'off');
     
-    % TODO: Add change folder button to the right of folder display
-
     % Add video buttons
     playPauseButton = uicontrol(c, 'Style', 'pushbutton', 'String', '>', ...
         'Position', [0 143 48 25], 'Callback', @onClick, 'FontSize', 20);
@@ -227,6 +225,18 @@ function StepperDLCValidator()
     % Add autosave checkbox
     autosaveCheckBox = uicontrol(c, 'Style', 'checkbox', 'String', 'Autosave', ...
         'Position', [0 0 1 1], 'Value', autosave);
+
+    % Add DLC button
+    sendToDLCButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Send to DLC', ...
+        'Position', [0 0 1 1], 'Callback', @onClick);
+
+    % Add mark button
+    markButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Mark', ...
+        'Position', [0 0 1 1], 'Callback', @onClick);
+
+    % Add unmark button
+    unmarkButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Unmark', ...
+        'Position', [0 0 1 1], 'Callback', @onClick);
 
     % Add save button
     saveButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Save', ...
@@ -769,6 +779,12 @@ function StepperDLCValidator()
                     end
                     curFrame = setFrameIndex(val);
                 end
+            case markButton % TODO: IMPLEMENT
+                changeDisplay = 0;
+            case unmarkButton
+                changeDisplay = 0;
+            case sendToDLCButton
+                changeDisplay = 0;
             otherwise
                 error('I do not know how you did this, but you did something wrong. Contact your local Mike Rauscher for assistance');
         end
@@ -789,6 +805,9 @@ function StepperDLCValidator()
     function fileSwitch(status)
         prevFileButton.Enable = status;
         nextFileButton.Enable = status;
+        markButton.Enable = status;
+        unmarkButton.Enable = status;
+        sendToDLCButton.Enable = status;
         deleteButton.Enable = status;
         saveButton.Enable = status;
         filesList.Enable = status;
@@ -1022,24 +1041,24 @@ function StepperDLCValidator()
 
         % Update file list
         filesList.Position(1) = 0;
-        filesList.Position(3) = videoAxis.Position(3) - 200;
+        filesList.Position(3) = videoAxis.Position(3) - 225;
         filesList.Position(4) = videoAxis.Position(2) - 25;
 
         % Update file buttons
         prevFileButton.Position(1) = filesList.Position(3);
         prevFileButton.Position(2) = filesList.Position(4) / 2;
-        prevFileButton.Position(3) = 100;
+        prevFileButton.Position(3) = 75;
         prevFileButton.Position(4) = filesList.Position(4) / 2;
 
         nextFileButton.Position(1) = filesList.Position(3); 
         nextFileButton.Position(2) = 0;
-        nextFileButton.Position(3) = 100;
+        nextFileButton.Position(3) = 75;
         nextFileButton.Position(4) = filesList.Position(4) / 2;
 
         % Update quit button
-        quitButton.Position(1) = filesList.Position(3) + 100;
+        quitButton.Position(1) = filesList.Position(3) + 150;
         quitButton.Position(2) = 0;
-        quitButton.Position(3) = 100;
+        quitButton.Position(3) = 75;
         quitButton.Position(4) = filesList.Position(4) / 3;
 
         % Update delete button
@@ -1050,19 +1069,33 @@ function StepperDLCValidator()
         saveButton.Position = deleteButton.Position;
         saveButton.Position(2) = saveButton.Position(2) + saveButton.Position(4);
         
-        % Update autosave checkbox
-        autosaveCheckBox.Position = saveButton.Position;
-        autosaveCheckBox.Position(1) = autosaveCheckBox.Position(1) + 20;
-        autosaveCheckBox.Position(2) = autosaveCheckBox.Position(2) + autosaveCheckBox.Position(4);
-        autosaveCheckBox.Position(3) = autosaveCheckBox.Position(3) - 20;
-        autosaveCheckBox.Position(4) = 25;
+        % Update mark button
+        sendToDLCButton.Position(1) = filesList.Position(3) + 75;
+        sendToDLCButton.Position(2) = 0;
+        sendToDLCButton.Position(3) = 75;
+        sendToDLCButton.Position(4) = filesList.Position(4) / 3;
         
+        % Update unmark button
+        unmarkButton.Position = sendToDLCButton.Position;
+        unmarkButton.Position(2) = sendToDLCButton.Position(2) + sendToDLCButton.Position(4);
+
+        % Update send to DLC button
+        markButton.Position = unmarkButton.Position;
+        markButton.Position(2) = unmarkButton.Position(2) + unmarkButton.Position(4);
+
         % Update folder display
         folderDisplay.Position(1) = 0;
         folderDisplay.Position(2) = filesList.Position(4);
         folderDisplay.Position(3) = filesList.Position(3) + 100;
         folderDisplay.Position(4) = 25;
     
+        % Update autosave checkbox
+        autosaveCheckBox.Position = saveButton.Position;
+        autosaveCheckBox.Position(1) = folderDisplay.Position(1) + folderDisplay.Position(3) + 20;
+        autosaveCheckBox.Position(2) = autosaveCheckBox.Position(2) + autosaveCheckBox.Position(4);
+        autosaveCheckBox.Position(3) = autosaveCheckBox.Position(3) + 20;
+        autosaveCheckBox.Position(4) = 20;
+
         % Update data window
         dataAxis.Position(1) = videoAxis.Position(3) + 35;
         dataAxis.Position(2) = 75;
