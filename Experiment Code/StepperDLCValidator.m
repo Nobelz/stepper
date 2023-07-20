@@ -3,12 +3,12 @@ function StepperDLCValidator()
 % Validates DLC pose estimations with custom GUI.
 %
 % Author: Mike Rauscher and Nobel Zhou
-% Date: 19 July 2023
+% Date: 20 July 2023
 % Version: 0.2
 %
 % VERSION CHANGELOG:
 % - v0.1 (???): Initial commit
-% - v0.2 (7/19/2023): Make code more readable
+% - v0.2 (7/20/2023): Make code more readable
 
     %% Define Constants
     SHOW_WINGS = 0;
@@ -90,103 +90,143 @@ function StepperDLCValidator()
 
     loadFly(currentVideoIndex); % Load fly information
 
+    % Display points
+    getHeadAngle();
+    getBodyAngle();
+    
+    numFrames = videoReader.NumFrames;
+    curFrame = setFrameIndex(1); % Get current frame
 
-getheadang;
-getBodyAngle;
-numFrames = videoReader.NumFrames;
-curframe = setFrameIndex(1);
-vwidth = videoReader.Width;
-vheight = videoReader.Height;
-hyp = sqrt(vwidth^2 + vheight^2);
-vwidth = round(768*(vwidth/vheight));
-vheight = 768;
-uiheight = vheight;
-uiwidth = vwidth+480;
+    % Get video reader dimensions and scale it up
+    videoWidth = round(768 * (videoReader.Width / videoReader.Height));
+    videoHeight = 768;
+    
+    %% Create GUI
+    % Make GUI Figure
+    c = figure('Name', 'Stepper DLC Validator', ...
+        'NumberTitle', 'off', 'MenuBar', 'none', ...
+        'Position', [100 100 1280 800], 'CloseRequestFcn', @onClose, ...
+        'SizeChangedFcn', @szch);
+    
+    % Make file list in bottom left
+    filesList = uicontrol(c, 'Style', 'listbox', 'String', displayNames, ...
+        'Position', [0 0 480 600], 'Callback', @buttons, 'Value', lastVideoIndex);
 
-c = figure('Name','Stepper DLC Validator','NumberTitle','off',...
-    'MenuBar','none','Position',[100 100 1280 800],...
-    'CloseRequestFcn',@onClose,'SizeChangedFcn',@szch);
+    % Specify axes
+    videoAxis = axes(c, 'unit', 'pixel', 'Position', [480 0 videoWidth videoHeight], ...
+        'XTick', [], 'YTick', []); % Axes for video reader
+    dataAxis = axes(c, 'unit', 'pixel', 'Position', [0 0 100 100]); % Axes for whole data graph
+    zoomAxis = axes(c, 'unit', 'pixel', 'Position', [0 0 100 100]); % Axes for zoomed in data graph (on top)
+    editLines = plot(dataAxis, nan, nan); % Plot no edit lines at first
+    
+    % Edit data axis
+    xlim(dataAxis, [0 numFrames]); % Set frames to go through all frames
+    xticks(dataAxis, [1 500 : 500 : numFrames]); % X tick for every 500 frames
+    dataAxis.XTickLabelRotation = 45;
+    ylim(dataAxis, [-180 180]);
+    yticks(dataAxis, -180 : 30: 180);
+    xlabel(dataAxis, 'Frame #');
 
-fileslist = uicontrol(c,'Style','listbox','String',displayNames,...
-    'Position',[0 0 480 600],'Callback',@buttons,'Value',lastVideoIndex);
+    % Plot data axis
+    hold(dataAxis, 'on');
+    bodyLine = plot(dataAxis, 1 : numFrames, bodyAngles, '--', ...
+        'Color', BODY_COLOR, 'LineWidth', 2.5);
+    headLine = plot(dataAxis, 1 : numFrames, headAngles, ...
+        'Color', HEAD_COLOR, 'LineWidth', 1);
+    curFrameLine = xline(dataAxis, 1, 'LineWidth', 1.5); % Specifies line of current frame, currently set to 1
+    dataAxis.XGrid = 'on';
+    dataAxis.YGrid = 'on';
+    hold(dataAxis,'off');
+    
+    dataAxis.ButtonDownFcn = @buttons; % Attach handler when they click on data axis
+    
+    % Plot zoomed axis
+    hold(zoomAxis,'on')
+    zoomBody = plot(zoomAxis, 1 : numFrames, bodyAngles, '--', ...
+        'Color', BODY_COLOR, 'LineWidth', 2.5);
+    zoomHead = plot(zoomAxis, 1 : numFrames, headAngles, ...
+        'Color', HEAD_COLOR, 'LineWidth', 1);
+    curFrameZoomLine = xline(zoomAxis, 1, 'LineWidth', 1);
+    zoomAxis.XGrid = 'on';
+    zoomAxis.YGrid = 'on';
+    zoomAxis.XTick = 1 : numFrames;
+    hold(zoomAxis,'off');
 
-vidax = axes(c,'unit','pixel','Position',[480 0 vwidth vheight],'XTick',[],'YTick',[]);
-dataX = axes(c,'unit','pixel','Position',[0 0 100 100]);
-zoomax = axes(c,'unit','pixel','Position',[0 0 100 100]);
-editLines = plot(dataX,nan,nan);
-xlim(dataX,[0 numFrames]);
-xticks(dataX,[1 500:500:numFrames]);
-dataX.XTickLabelRotation = 45;
-ylim(dataX,[-180 180]);
-yticks(dataX,-180:45:180);
-xlabel(dataX,'Frame #');
-hold(dataX,'on');
-bodyline = plot(dataX,1:numFrames,bodyAngles,'--','Color',BODY_COLOR,'LineWidth',2.5);
-headline = plot(dataX,1:numFrames,headAngles,'Color',HEAD_COLOR,'LineWidth',1);
-fline = xline(dataX,1,'LineWidth',1.5);
-dataX.XGrid = 'on';
-dataX.YGrid = 'on';
-hold(dataX,'off');
-dataX.ButtonDownFcn = @buttons;
+    % Plot video axis
+    im = image(videoAxis, curFrame); % Add frame to video
+    hold(videoAxis,'on');
+    bodyaxline = plot(videoAxis, [nan nan], [nan nan], '--', ...
+        'Color', BODY_COLOR, 'LineWidth', 2);
+    headaxline = plot(videoAxis, [nan nan], [nan nan], ...
+        'Color', HEAD_COLOR, 'LineWidth', 2);
+    
+    % Show wings if necessary
+    if SHOW_WINGS
+        wingLline = plot(videoAxis, [nan nan], [nan nan], 'Color', 'r', 'LineWidth', 2);
+        wingRline = plot(videoAxis, [nan nan], [nan nan], 'Color', 'r', 'LineWidth', 2);
+        numEditPoints = 13;
+    else
+        numEditPoints = 11;
+    end
 
-hold(zoomax,'on')
-bodyzmline = plot(zoomax,1:numFrames,bodyAngles,'--','Color',BODY_COLOR,'LineWidth',2.5);
-headzmline = plot(zoomax,1:numFrames,headAngles,'Color',HEAD_COLOR,'LineWidth',1);
-zmfline = xline(zoomax,1,'LineWidth',1);
-zoomax.XGrid = 'on';
-zoomax.YGrid = 'on';
-zoomax.XTick = 1:numFrames;
-hold(zoomax,'off');
+    % Plot "quick" points if the video is playing
+    readOnlyPoints = plot(videoAxis, nan, nan, '*', 'Color', 'm', 'Visible', 'off');
+    
+    % Plot points that can be edited and moved around, for use if the video
+    % is not playing
+    editPoints = cell(1, numEditPoints);
+    
+    % Loop through each point that can be displayed
+    for j = 1 : numEditPoints
+        newPoint = images.roi.Point(videoAxis);
+        newPoint.Color = COLOR_MAP(j, :);
+        newPoint.Label = BODY_NAMES{j};
+        newPoint.LabelVisible = 'hover';
+        newPoint.Deletable = 0;
+        addlistener(newPoint, 'MovingROI', @eventcb);
+        addlistener(newPoint, 'ROIMoved', @eventcb);
 
-im = image(vidax,curframe);
-hold(vidax,'on');
-bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',2);
-headaxline = plot(vidax,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2);
-if SHOW_WINGS
-    wingLline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
-    wingRline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
-end
-drpts = plot(vidax,nan,nan,'*','Color','m','Visible','off');
-edpts = {};
-if SHOW_WINGS;uptopt = 13;else;uptopt = 11;end
-for ptix = 1:uptopt
-    edpts{end+1} = images.roi.Point(vidax);
-    edpts{end}.Color = COLOR_MAP(ptix,:);
-    edpts{end}.Label = BODY_NAMES{ptix};
-    edpts{end}.LabelVisible = 'hover';
-    edpts{end}.Deletable = false;
-    addlistener(edpts{end},'MovingROI',@eventcb);
-    addlistener(edpts{end},'ROIMoved',@eventcb);
-end
-xticks(vidax,[]);
-yticks(vidax,[]);
-hold(vidax,'off');
-%we'll not set the layout here instead do everything with sizechangedfcn
-dispdir = uicontrol(c,'Style', 'edit','ToolTip',directory,... 
-    'String',directory,'ButtonDownFcn',@buttons,...
-    'Position', [0 0 480 40],'Enable','off');
+        editPoints{j} = newPoint;
+    end
 
-playPauseButton = uicontrol(c,'Style','pushbutton','String','>',...
-    'Position',[0 143 48 25],'Callback',@buttons,'FontSize',20);
+    xticks(videoAxis, []);
+    yticks(videoAxis, []);
+    hold(videoAxis, 'off');
 
-stopButton = uicontrol(c,'Style','pushbutton','String',string(char(11036)),...
-    'Position',[0 143 48 25],'Callback',@buttons,'FontSize',20);
+    % Coder's note: the layout is not set here, but instead in the
+    % onSizeChanged() function. - nxz157, 7/20/2023
 
-frameDisplay = uicontrol(c,'Style', 'edit',... 
-    'String',['Frame 1 of ' num2str(numFrames)],'ButtonDownFcn',@buttons,...
-    'Position', [52 143 428 25],'Enable','off');
+    % Add folder display
+    folderDisplay = uicontrol(c, 'Style', 'edit', 'ToolTip', directory, ...
+        'String', directory, 'ButtonDownFcn', @buttons, ...
+        'Position', [0 0 480 40], 'Enable', 'off');
+    
+    % TODO: Add change folder button to the right of folder display
 
-progressBar = uicontrol(c,'Style','slider', 'Min',1,'Max',numFrames,'Value',1,...
-    'SliderStep',[1/(numFrames-1) 1/(numFrames-1)],...
-    'Position',[0 118 480 25],'Callback',@buttons);
-
-nextfilebtn = uicontrol(c,'Style','pushbutton','String','V',...
-    'Position',[0 0 1 1],'Callback',@buttons,'FontSize',28);
-prevfilebtn = uicontrol(c,'Style','pushbutton','String',string(char(923)),...
-    'Position',[0 0 1 1],'Callback',@buttons,'FontSize',28);
-
-autosavecheck = uicontrol(c,'Style','checkbox','String','Autosave',...
-    'Position',[0 0 1 1],'Value',autosave);
+    % Add video buttons
+    playPauseButton = uicontrol(c, 'Style', 'pushbutton', 'String', '>', ...
+        'Position', [0 143 48 25], 'Callback', @buttons, 'FontSize', 20);
+    stopButton = uicontrol(c, 'Style', 'pushbutton', 'String', string(char(11036)), ...
+        'Position',[0 143 48 25], 'Callback', @buttons, 'FontSize', 20);
+    
+    % Add frame display
+    frameDisplay = uicontrol(c, 'Style', 'edit', 'String', ['Frame 1 of ' num2str(numFrames)], ...
+        'ButtonDownFcn', @buttons, 'Position', [52 143 428 25], 'Enable', 'off');
+    
+    % Add progress bar
+    progressBar = uicontrol(c, 'Style', 'slider', 'Min', 1, 'Max', ...
+        numFrames, 'Value', 1, 'SliderStep', [1 / (numFrames - 1) 1 / (numFrames - 1)], ...
+        'Position', [0 118 480 25], 'Callback', @buttons);
+    
+    % Add file buttons
+    nextFileButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'V', ...
+        'Position', [0 0 1 1], 'Callback', @buttons, 'FontSize', 28);
+    prevFileButton = uicontrol(c, 'Style', 'pushbutton', 'String', string(char(923)), ...
+        'Position', [0 0 1 1], 'Callback', @buttons, 'FontSize', 28);
+    
+    % Add saving GUI
+    autosaveCheckBox = uicontrol(c, 'Style', 'checkbox', 'String', 'Autosave', ...
+        'Position', [0 0 1 1], 'Value', autosave);
 savebutton = uicontrol(c,'Style','pushbutton','String','Save',...
     'Position',[0 0 1 1],'Callback',@buttons);
 deletebutton = uicontrol(c,'Style','pushbutton','String','Delete',...
@@ -247,7 +287,7 @@ c.WindowState='maximized';
 if isfile(procNames{lastVideoIndex})
     updateFrames;
 end
-curframe = setFrameIndex(1);
+curFrame = setFrameIndex(1);
 showframe;
 
     function updatetrackingparams(h,~)
@@ -268,8 +308,8 @@ showframe;
             end
         end
         getBodyAngle();
-        bodyline.YData = bodyAngles;
-        bodyzmline.YData =bodyAngles;
+        bodyLine.YData = bodyAngles;
+        zoomBody.YData =bodyAngles;
         
         mx = find(h==headbtns);
         if ~isempty(mx)
@@ -282,15 +322,15 @@ showframe;
                 headbtns(i).Enable = 'on';
             end
         end
-        getheadang()
-        headline.YData = headAngles;
-        headzmline.YData = headAngles;
+        getHeadAngle()
+        headLine.YData = headAngles;
+        zoomHead.YData = headAngles;
         if strcmp(videoTimer.Running,'off')
-            for i = 1:uptopt
+            for i = 1:numEditPoints
                 if ismember(i,showPoints)
-                    edpts{i}.Visible = 'on';
+                    editPoints{i}.Visible = 'on';
                 else
-                    edpts{i}.Visible = 'off';
+                    editPoints{i}.Visible = 'off';
                 end
             end
             showframe;
@@ -301,19 +341,19 @@ showframe;
     function nextFrame(~, ~)
         if (frameIndex + 1) > numFrames
             if LOOP
-                curframe = setFrameIndex(1);
+                curFrame = setFrameIndex(1);
             else
                 stop(videoTimer);
                 playPauseButton.String = '>';
             end
         else
-            curframe = setFrameIndex(frameIndex+1);
+            curFrame = setFrameIndex(frameIndex+1);
         end
         showframe();
     end
 
     function showframe()
-        im.CData = curframe;
+        im.CData = curFrame;
         xdat = xPoints(frameIndex,:);
         ydat = yPoints(frameIndex,:);
         badix = pPoints(frameIndex,:)<.90;
@@ -326,11 +366,11 @@ showframe;
         headaxline.XData = hpts([1 3]);
         headaxline.YData = hpts([2 4]);
         if strcmp(videoTimer.Running,'on')
-            drpts.XData = xdat(showPoints);
-            drpts.YData = ydat(showPoints);
+            readOnlyPoints.XData = xdat(showPoints);
+            readOnlyPoints.YData = ydat(showPoints);
         else
-            for i = 1:uptopt
-                edpts{i}.Position = [xdat(i) ydat(i)];
+            for i = 1:numEditPoints
+                editPoints{i}.Position = [xdat(i) ydat(i)];
             end
         end
         xdat(badix) = nan;
@@ -340,7 +380,7 @@ showframe;
             wingRline.XData = xdat([6 13]);wingRline.YData = ydat([6 13]);
         end
         
-        zoomax.XLim = [frameIndex-10 frameIndex+10];
+        zoomAxis.XLim = [frameIndex-10 frameIndex+10];
         drawnow limitrate;
     end
     
@@ -397,7 +437,7 @@ showframe;
     %% Get Head Angles Function
     % Using the X and Y points, as well as the calculation method, this
     % function calculates the head angle.
-    function getheadang()
+    function getHeadAngle()
         x = xPoints;
         y = yPoints;
         switch headCalcMethod
@@ -449,12 +489,12 @@ showframe;
         yPoints(frameIndex,pix) =  h.Position(2);
         pPoints(frameIndex,pix) = inf;%will still be higher than any cutoff but also unambiguously an edited point
         getBodyAngle();
-        getheadang();
+        getHeadAngle();
         if strcmp(e.EventName,'ROIMoved')
-            bodyline.YData = bodyAngles;
-            bodyzmline.YData = bodyAngles;
-            headline.YData = headAngles;
-            headzmline.YData = headAngles;
+            bodyLine.YData = bodyAngles;
+            zoomBody.YData = bodyAngles;
+            headLine.YData = headAngles;
+            zoomHead.YData = headAngles;
             mx = find(updatedFrames==frameIndex,1);
             if isempty(mx)
                 updatedFrames = [updatedFrames; frameIndex];
@@ -467,7 +507,7 @@ showframe;
 
     function buttons(b, e)
         switch b
-            case dispdir
+            case folderDisplay
                 return
 %                 d = uigetdir(curdir);
 %                 if d==0;return;end                
@@ -481,76 +521,76 @@ showframe;
 %                 fileslist.Value = 1;
 %                 fileslist.String = dispnames;
 %                 loadvid(1);
-            case fileslist
-                if b.Value~=currentVideoIndex && autosavecheck.Value == 1
+            case filesList
+                if b.Value~=currentVideoIndex && autosaveCheckBox.Value == 1
                     buttons(savebutton,[]);
                 end
                 loadvid(b.Value);
-            case nextfilebtn
-                if fileslist.Value~=length(videoNames)
-                    if autosavecheck.Value == 1
+            case nextFileButton
+                if filesList.Value~=length(videoNames)
+                    if autosaveCheckBox.Value == 1
                         buttons(savebutton,[]);
                     end
-                    fileslist.Value = fileslist.Value+1;
-                    loadvid(fileslist.Value);
+                    filesList.Value = filesList.Value+1;
+                    loadvid(filesList.Value);
                 end
-            case prevfilebtn                
-                if fileslist.Value~=1
-                    if autosavecheck.Value == 1
+            case prevFileButton                
+                if filesList.Value~=1
+                    if autosaveCheckBox.Value == 1
                         buttons(savebutton,[]);
                     end
-                    fileslist.Value = fileslist.Value-1;    
-                    loadvid(fileslist.Value);
+                    filesList.Value = filesList.Value-1;    
+                    loadvid(filesList.Value);
                 end
             case progressBar
 %                 b.Value = min([numframes,round(b.Value)]);
                 ix = round(b.Value);
                 if ix>numFrames;ix = numFrames;end
                 if ix<1; ix = 1;end
-                curframe = setFrameIndex(ix);
+                curFrame = setFrameIndex(ix);
             case playPauseButton
                 if strcmp(b.String,'>')
                     if frameIndex == numFrames
-                        curframe = setFrameIndex(1);
+                        curFrame = setFrameIndex(1);
                     end
                     b.String = string(char(449));
-                    drpts.Visible = 'on';
-                    for i = 1:uptopt
-                        edpts{i}.Visible = 'off';
+                    readOnlyPoints.Visible = 'on';
+                    for i = 1:numEditPoints
+                        editPoints{i}.Visible = 'off';
                     end
                     start(videoTimer);
                 else
                     stop(videoTimer);
-                    drpts.Visible = 'off';
+                    readOnlyPoints.Visible = 'off';
                     for i = showPoints
-                        edpts{i}.Visible = 'on';
+                        editPoints{i}.Visible = 'on';
                     end
                     b.String = '>';
                 end
             case stopButton
                 if strcmp(videoTimer.Running,'on')
                     stop(videoTimer);
-                    drpts.Visible = 'off';
+                    readOnlyPoints.Visible = 'off';
                     for i = showPoints
-                        edpts{i}.Visible = 'on';
+                        editPoints{i}.Visible = 'on';
                     end
                     playPauseButton.String = '>';
                 end
-                curframe = setFrameIndex(1);
+                curFrame = setFrameIndex(1);
             case nextframebtn
                 if frameIndex<numFrames && strcmp(videoTimer.Running,'off')
-                    curframe = setFrameIndex(frameIndex+1);
+                    curFrame = setFrameIndex(frameIndex+1);
                 end
             case prevframebtn
                 if frameIndex>1 && strcmp(videoTimer.Running,'off')
-                    curframe = setFrameIndex(frameIndex-1);
+                    curFrame = setFrameIndex(frameIndex-1);
                 end
             case frameDisplay
                 value = inputdlg('Pick Frame:','',[1,30],{num2str(frameIndex)});
                 if ~isempty(value) && all(isstrprop(strip(value{1}),'digit'))
                     value = str2num(value{1});
                     if value>0 && value<= numFrames
-                        curframe=setFrameIndex(value);
+                        curFrame=setFrameIndex(value);
                     else
                         return
                     end
@@ -573,17 +613,17 @@ showframe;
                 save(fn,'fly');
                 if ~strcmp(displayNames{currentVideoIndex}(1),'*')
                     displayNames{currentVideoIndex} = ['*' displayNames{currentVideoIndex}];
-                    fileslist.String= displayNames;
+                    filesList.String= displayNames;
                 end
                 return
             case deletebutton
-                fn = procNames{fileslist.Value};
+                fn = procNames{filesList.Value};
                 if isfile(fn)                    
                     delete(fn)
                 end
-                if strcmp(displayNames{fileslist.Value}(1),'*')
-                    displayNames{fileslist.Value} = displayNames{fileslist.Value}(2:end);
-                    fileslist.String= displayNames;
+                if strcmp(displayNames{filesList.Value}(1),'*')
+                    displayNames{filesList.Value} = displayNames{filesList.Value}(2:end);
+                    filesList.String= displayNames;
                 end
             case quitbutton
                 onClose;
@@ -597,16 +637,16 @@ showframe;
                 pPoints(revix,:) = csv(revix,4:3:end);
                 updatedFrames(ix) = [];
                 updateFrames;
-                getheadang;
+                getHeadAngle;
                 getBodyAngle;
-                headline.YData = headAngles;
-                bodyline.YData = bodyAngles;
+                headLine.YData = headAngles;
+                bodyLine.YData = bodyAngles;
                 if ix>1
                     updatedFramesDropdownMenu.Value = ix-1;
                 end
             case gotomarkerbtn
                 if isempty(updatedFrames);return;end
-                curframe = setFrameIndex(updatedFrames(updatedFramesDropdownMenu.Value));
+                curFrame = setFrameIndex(updatedFrames(updatedFramesDropdownMenu.Value));
             case nextmarkerbtn
                 if isempty(updatedFrames);return;end
                 if updatedFramesDropdownMenu.Value==length(updatedFrames)
@@ -615,7 +655,7 @@ showframe;
                     ix = updatedFramesDropdownMenu.Value+1;
                 end
                 updatedFramesDropdownMenu.Value = ix;
-                curframe = setFrameIndex(updatedFrames(ix));
+                curFrame = setFrameIndex(updatedFrames(ix));
             case prevmarkerbtn
                 if isempty(updatedFrames);return;end
                 if updatedFramesDropdownMenu.Value==1
@@ -624,13 +664,13 @@ showframe;
                     ix = updatedFramesDropdownMenu.Value-1;
                 end
                 updatedFramesDropdownMenu.Value = ix;
-                curframe = setFrameIndex(updatedFrames(ix));
-            case dataX
+                curFrame = setFrameIndex(updatedFrames(ix));
+            case dataAxis
                 if e.Button==1
                     ix = round(e.IntersectionPoint(1));
                     if ix>numFrames;ix = numFrames;end
                     if ix<1; ix = 1;end
-                    curframe = setFrameIndex(ix);
+                    curFrame = setFrameIndex(ix);
                 end
             otherwise
                 disp('!');
@@ -647,64 +687,64 @@ showframe;
         end        
         currentVideoIndex = ix;
         videoReader = VideoReader(videoNames{ix});
-        hyp = sqrt(videoReader.Width^2 + videoReader.Height^2);
+        % hyp = sqrt(videoReader.Width^2 + videoReader.Height^2);
         numFrames = videoReader.NumFrames;
         progressBar.Value = 1;
         progressBar.SliderStep = [1/(numFrames-1) 1/(numFrames-1)];
         progressBar.Max = numFrames;
-        curframe=setFrameIndex(1);
-        im = image(vidax,curframe);
-        hold(vidax,'on');
+        curFrame=setFrameIndex(1);
+        im = image(videoAxis,curFrame);
+        hold(videoAxis,'on');
         clear('bodyaxline');
         clear('headaxline');
-        clear('drpts');
-        clear('edpts');
-        bodyaxline = plot(vidax,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',1.5);
-        headaxline = plot(vidax,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2.5);
+        clear('readOnlyPoints');
+        clear('editPoints');
+        bodyaxline = plot(videoAxis,[nan nan],[nan nan],'--','Color',BODY_COLOR,'LineWidth',1.5);
+        headaxline = plot(videoAxis,[nan nan],[nan nan],'Color',HEAD_COLOR,'LineWidth',2.5);
         if SHOW_WINGS
-            wingLline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
-            wingRline = plot(vidax,[nan nan],[nan nan],'Color','r','LineWidth',2);
+            wingLline = plot(videoAxis,[nan nan],[nan nan],'Color','r','LineWidth',2);
+            wingRline = plot(videoAxis,[nan nan],[nan nan],'Color','r','LineWidth',2);
         end
-        drpts = plot(vidax,nan,nan,'*','Color','m','Visible','off');
-        edpts = {};
-        for i = 1:uptopt
-            edpts{end+1} = images.roi.Point(vidax);
-            edpts{end}.Color = COLOR_MAP(i,:);
-            edpts{end}.Label = BODY_NAMES{i};
-            edpts{end}.LabelVisible = 'hover';
-            edpts{end}.Deletable = false;
+        readOnlyPoints = plot(videoAxis,nan,nan,'*','Color','m','Visible','off');
+        editPoints = {};
+        for i = 1:numEditPoints
+            editPoints{end+1} = images.roi.Point(videoAxis);
+            editPoints{end}.Color = COLOR_MAP(i,:);
+            editPoints{end}.Label = BODY_NAMES{i};
+            editPoints{end}.LabelVisible = 'hover';
+            editPoints{end}.Deletable = false;
             if ismember(i,showPoints)
-                edpts{end}.Visible = 'on';
+                editPoints{end}.Visible = 'on';
             else
-                edpts{end}.Visible = 'off';
+                editPoints{end}.Visible = 'off';
             end
-            addlistener(edpts{end},'MovingROI',@eventcb);
-            addlistener(edpts{end},'ROIMoved',@eventcb);
+            addlistener(editPoints{end},'MovingROI',@eventcb);
+            addlistener(editPoints{end},'ROIMoved',@eventcb);
         end
 
         loadFly(ix);
         
 %         pts = plot(vidax,nan(1,13),nan(1,13),'m*');
-        hold(vidax,'off');
-        xticks(vidax,[]);
-        yticks(vidax,[]);
-        xlim(dataX,[0 numFrames]);
-        xticks(dataX,[1 500:500:numFrames]);
-        getheadang;
+        hold(videoAxis,'off');
+        xticks(videoAxis,[]);
+        yticks(videoAxis,[]);
+        xlim(dataAxis,[0 numFrames]);
+        xticks(dataAxis,[1 500:500:numFrames]);
+        getHeadAngle;
         getBodyAngle;
-        hold(dataX,'on');
-        bodyline.XData = 1:numFrames;
-        bodyline.YData = bodyAngles;
-        headline.XData = 1:numFrames;
-        headline.YData = headAngles;
-        bodyzmline.XData = 1:numFrames;
-        bodyzmline.YData = bodyAngles;
-        headzmline.XData = 1:numFrames;
-        headzmline.YData = headAngles;
-        zoomax.XTick = 1:numFrames;
+        hold(dataAxis,'on');
+        bodyLine.XData = 1:numFrames;
+        bodyLine.YData = bodyAngles;
+        headLine.XData = 1:numFrames;
+        headLine.YData = headAngles;
+        zoomBody.XData = 1:numFrames;
+        zoomBody.YData = bodyAngles;
+        zoomHead.XData = 1:numFrames;
+        zoomHead.YData = headAngles;
+        zoomAxis.XTick = 1:numFrames;
 %         bodyline = plot(datax,1:numframes,BodyAng,'--','Color',BCOLOR,'LineWidth',1.5);
 %         headline = plot(datax,1:numframes,HeadAng,'Color',HCOLOR,'LineWidth',2.5);
-        hold(dataX,'off');
+        hold(dataAxis,'off');
         updatetrackingparams(bodybtns(bodyCalcMethod));
         updateFrames
         showframe;
@@ -738,14 +778,14 @@ showframe;
         end
 
         % Plot edited lines
-        hold(dataX, 'on');
+        hold(dataAxis, 'on');
 
         % Delete existing edited lines
         delete(editLines);
 
         if ~isempty(updatedFrames)
             try
-                editLines = plot(dataX, [updatedFrames updatedFrames]', [-180 180], '--', 'Color', EDIT_COLOR);
+                editLines = plot(dataAxis, [updatedFrames updatedFrames]', [-180 180], '--', 'Color', EDIT_COLOR);
             catch
                 disp('!');
             end
@@ -756,8 +796,8 @@ showframe;
             drawnow; % Update figure
         end
 
-        dataX.XGrid = 'on';
-        hold(dataX, 'off');
+        dataAxis.XGrid = 'on';
+        hold(dataAxis, 'off');
 
         % Restart timer if it was running before
         if timerRunning
@@ -803,8 +843,8 @@ showframe;
         frame = read(videoReader, index); % Read in new index
         progressBar.Value = index;
         frameDisplay.String = ['Frame ' num2str(index) ' of ' num2str(numFrames)];
-        fline.Value = index;
-        zmfline.Value = index;
+        curFrameLine.Value = index;
+        curFrameZoomLine.Value = index;
     end
 
     %% Get Video Names Function
@@ -838,48 +878,48 @@ showframe;
     end
 
     function szch(h,~)
-        vidax.Position(2) = h.Position(4)*.3;
-        vidax.Position(4) = h.Position(4)-vidax.Position(2)+1;
-        vidax.Position(3) = vidax.Position(4)*4/3;
-        vidax.Position(1) = 0;
-        fileslist.Position(1) = 0;
-        fileslist.Position(3) = vidax.Position(3)-200;
-        fileslist.Position(4) = vidax.Position(2)-25;
-        prevfilebtn.Position(1) = fileslist.Position(3);
-        prevfilebtn.Position(2) = fileslist.Position(4)/2;
-        prevfilebtn.Position(3) = 100;
-        prevfilebtn.Position(4) = fileslist.Position(4)/2;
-        nextfilebtn.Position(1) = fileslist.Position(3);
-        nextfilebtn.Position(2) = 0;
-        nextfilebtn.Position(3) = 100;
-        nextfilebtn.Position(4) = fileslist.Position(4)/2;
-        quitbutton.Position(1) = fileslist.Position(3)+100;
+        videoAxis.Position(2) = h.Position(4)*.3;
+        videoAxis.Position(4) = h.Position(4)-videoAxis.Position(2)+1;
+        videoAxis.Position(3) = videoAxis.Position(4)*4/3;
+        videoAxis.Position(1) = 0;
+        filesList.Position(1) = 0;
+        filesList.Position(3) = videoAxis.Position(3)-200;
+        filesList.Position(4) = videoAxis.Position(2)-25;
+        prevFileButton.Position(1) = filesList.Position(3);
+        prevFileButton.Position(2) = filesList.Position(4)/2;
+        prevFileButton.Position(3) = 100;
+        prevFileButton.Position(4) = filesList.Position(4)/2;
+        nextFileButton.Position(1) = filesList.Position(3);
+        nextFileButton.Position(2) = 0;
+        nextFileButton.Position(3) = 100;
+        nextFileButton.Position(4) = filesList.Position(4)/2;
+        quitbutton.Position(1) = filesList.Position(3)+100;
         quitbutton.Position(2) = 0;
         quitbutton.Position(3) = 100;
-        quitbutton.Position(4) = fileslist.Position(4)/3;
+        quitbutton.Position(4) = filesList.Position(4)/3;
         deletebutton.Position = quitbutton.Position;
         deletebutton.Position(2) = deletebutton.Position(2)+deletebutton.Position(4);
         savebutton.Position = deletebutton.Position;
         savebutton.Position(2) = savebutton.Position(2)+savebutton.Position(4);
-        autosavecheck.Position = savebutton.Position;
-        autosavecheck.Position(1) = autosavecheck.Position(1)+20;
-        autosavecheck.Position(2) = autosavecheck.Position(2)+autosavecheck.Position(4);
-        autosavecheck.Position(3) = autosavecheck.Position(3)-20;
-        autosavecheck.Position(4) = 25;
+        autosaveCheckBox.Position = savebutton.Position;
+        autosaveCheckBox.Position(1) = autosaveCheckBox.Position(1)+20;
+        autosaveCheckBox.Position(2) = autosaveCheckBox.Position(2)+autosaveCheckBox.Position(4);
+        autosaveCheckBox.Position(3) = autosaveCheckBox.Position(3)-20;
+        autosaveCheckBox.Position(4) = 25;
         
-        dispdir.Position(1) = 0;
-        dispdir.Position(2) = fileslist.Position(4);
-        dispdir.Position(3) = fileslist.Position(3)+100;
-        dispdir.Position(4) = 25;
-        dataX.Position(1) = vidax.Position(3)+35;
-        dataX.Position(2) = 75;
-        dataX.Position(3) = h.Position(3)-vidax.Position(3)-35; 
-        dataX.Position(4) = h.Position(4)-430;
-        zoomax.Position(1) = dataX.Position(1);
-        zoomax.Position(2) = dataX.Position(2)+dataX.Position(4)+30;
-        zoomax.Position(3) = dataX.Position(3);
-        zoomax.Position(4) = 200;
-        playPauseButton.Position(1) = vidax.Position(3)+5;
+        folderDisplay.Position(1) = 0;
+        folderDisplay.Position(2) = filesList.Position(4);
+        folderDisplay.Position(3) = filesList.Position(3)+100;
+        folderDisplay.Position(4) = 25;
+        dataAxis.Position(1) = videoAxis.Position(3)+35;
+        dataAxis.Position(2) = 75;
+        dataAxis.Position(3) = h.Position(3)-videoAxis.Position(3)-35; 
+        dataAxis.Position(4) = h.Position(4)-430;
+        zoomAxis.Position(1) = dataAxis.Position(1);
+        zoomAxis.Position(2) = dataAxis.Position(2)+dataAxis.Position(4)+30;
+        zoomAxis.Position(3) = dataAxis.Position(3);
+        zoomAxis.Position(4) = 200;
+        playPauseButton.Position(1) = videoAxis.Position(3)+5;
         playPauseButton.Position(2) = h.Position(4)-55;
         playPauseButton.Position(3) = 50;
         playPauseButton.Position(4) = 50;
@@ -993,14 +1033,14 @@ showframe;
             return;
         end
 
-        if autosavecheck.Value == 1
+        if autosaveCheckBox.Value == 1
             buttons(savebutton, []); % Click save button before proceeding
         end
         
         % Save settings file
         settings = struct();
-        settings.autosave = autosavecheck.Value;
-        settings.lastfile = videoNames{fileslist.Value};
+        settings.autosave = autosaveCheckBox.Value;
+        settings.lastfile = videoNames{filesList.Value};
         settings.dir = directory;
         
         % Save into stepperdlcvalidator.set
