@@ -297,13 +297,13 @@ function StepperDLCValidator()
 
     % Update GUI to size
     onSizeChanged(c);
-    c.WindowState='maximized'; % Maximize window
+    c.WindowState = 'maximized'; % Maximize window
 
-if isfile(procNames{lastVideoIndex})
-    updateFrames;
-end
-curFrame = setFrameIndex(1);
-showFrame;
+    if isfile(procNames{lastVideoIndex})
+        updateFrames();
+    end
+    curFrame = setFrameIndex(1);
+    showFrame();
     
     %% Update Tracking Parameters Function
     % This function is called whenever we are changing the tracking
@@ -567,19 +567,32 @@ showFrame;
         changeDisplay = 1;
         switch b
             case folderDisplay
-                changeDisplay = 0;
-%                 d = uigetdir(curdir);
-%                 if d==0;return;end                
-%                 [fnames,dispnames,cnames] = getvideonames(d);
-%                 if isempty(fnames)
-%                     msgbox('No videos in this folder');
-%                     return
-%                 end
-%                 curdir = d;
-%                 b.String = d;
-%                 fileslist.Value = 1;
-%                 fileslist.String = dispnames;
-%                 loadvid(1);
+                goodDirectory = 0;
+                originalDirectory = directory;
+                
+                while ~goodDirectory
+                    directory = uigetdir(directory, 'Select Video Folder');
+                    
+                    % If cancel is pressed, directory goes back to original
+                    % directory
+                    if ~directory
+                        directory = originalDirectory;
+                    end
+
+                    [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
+                    
+                    if length(videoNames) < 1
+                        uiwait(msgbox({'The selected directory does not contain any videos.', ...
+                            'Please select a different folder.'}, 'No Videos'));
+                    else
+                        goodDirectory = 1;
+                    end
+                end
+
+                b.String = directory;
+                filesList.Value = 1;
+                filesList.String = displayNames;
+                loadVideo(filesLIst.Value); % Load first video
             case filesList 
                 % Save the current video if autosave is selected
                 if b.Value ~= currentVideoIndex && autosaveCheckBox.Value == 1
