@@ -11,11 +11,12 @@ function StepperDLCValidator()
 % - v0.2 (7/20/2023): Make code more readable
 
     %% Define Constants
-    SHOW_WINGS = 0; % Whether to show wings or not
+    SHOW_WINGS = 1; % Whether to show wings or not
     DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
     BODY_COLOR = [253, 141, 60] ./ 255;
     HEAD_COLOR = [43, 140, 190] ./ 255;
     EDIT_COLOR = [26, 152, 80] ./ 255;
+    BAD_COLOR = [105, 105, 105] ./ 255;
     DEFAULT_CALC_METHOD = [1 1];
     COLOR_MAP = hsv(13); % Color map used for points
     LOOP = 0; % Whether to loop back to the beginning for next frames
@@ -154,6 +155,7 @@ function StepperDLCValidator()
 
     % Plot video axis
     im = image(videoAxis, curFrame); % Add frame to video
+    
     hold(videoAxis, 'on');
     bodyVideoLine = plot(videoAxis, [nan nan], [nan nan], '--', ...
         'Color', BODY_COLOR, 'LineWidth', 2);
@@ -176,17 +178,27 @@ function StepperDLCValidator()
     % is not playing
     editPoints = cell(1, numEditPoints);
     
+    % Make menu for ROI points
+    wingPointMenu = uicontextmenu;
+    badTrackingMenuItem = uimenu(wingPointMenu, 'Text', 'Bad Tracking', 'Checked', 'off');
+    badTrackingMenuItem.MenuSelectedFcn = @onClick;
+    
     % Loop through each point that can be displayed
     for j = 1 : numEditPoints
         newPoint = images.roi.Point(videoAxis);
-        newPoint.Color = COLOR_MAP(j, :);
         newPoint.Label = BODY_NAMES{j};
+        newPoint.Color = COLOR_MAP(j, :);
         newPoint.LabelVisible = 'hover';
         newPoint.Deletable = 0;
         addlistener(newPoint, 'MovingROI', @onPointMoved);
         addlistener(newPoint, 'ROIMoved', @onPointMoved);
-
+        addlistener(newPoint, 'ROIClicked', @onClick);
+        
         editPoints{j} = newPoint;
+
+        if j > 11
+            set(newPoint, 'uicontextmenu', wingPointMenu);
+        end
     end
 
     xticks(videoAxis, []);
@@ -362,7 +374,7 @@ function StepperDLCValidator()
         headDataLine.YData = headAngles;
         zoomHead.YData = headAngles;
 
-        % Update which poins are shown if the video is not playing
+        % Update which points are shown if the video is not playing
         if strcmp(videoTimer.Running, 'off')
             for i = 1 : numEditPoints
                 if ismember(i, showPoints)
@@ -399,7 +411,7 @@ function StepperDLCValidator()
         im.CData = curFrame; % Update image data
         xData = xPoints(frameIndex, :);
         yData = yPoints(frameIndex, :);
-        badPoints = pPoints(frameIndex,:) < .90;
+        % badPoints = pPoints(frameIndex, :) < .90;
         
         % Get body and head points
         bodyPoints = bodyLinePoints(frameIndex, :);
@@ -418,12 +430,18 @@ function StepperDLCValidator()
         else
             for i = 1 : numEditPoints
                 editPoints{i}.Position = [xData(i) yData(i)];
+
+                if pPoints(frameIndex, i) == -inf
+                    editPoints{i}.Color = BAD_COLOR;
+                else
+                    editPoints{i}.Color = COLOR_MAP(i, :);
+                end
             end
         end
 
-        % Get rid of bad points
-        xData(badPoints) = nan;
-        yData(badPoints) = nan;
+        % % Get rid of bad points
+        % xData(badPoints) = nan;
+        % yData(badPoints) = nan;
 
         % Update wing lines if they should be displayed
         if SHOW_WINGS
@@ -542,12 +560,15 @@ function StepperDLCValidator()
     % This function is called whenever a point is moved and edited.
     function onPointMoved(h, e)
         pointIndex = find(strcmp(BODY_NAMES, h.Label));
+
         % Update point location
-        xPoints(frameIndex, pointIndex) =  h.Position(1);
-        yPoints(frameIndex, pointIndex) =  h.Position(2);
-        pPoints(frameIndex, pointIndex) = inf; % Since this is human inputted, the probability should be inf to signify an unambiguous edited point
-        getBodyAngles();
-        getHeadAngles();
+        if pPoints(frameIndex, pointIndex) ~= -inf
+            xPoints(frameIndex, pointIndex) =  h.Position(1);
+            yPoints(frameIndex, pointIndex) =  h.Position(2);
+            pPoints(frameIndex, pointIndex) = inf; % Since this is human inputted, the probability should be inf to signify an unambiguous edited point
+            getBodyAngles();
+            getHeadAngles();
+        end
         
         % If the point is done moving, we must update the body and head
         % angle data for the fly
@@ -715,7 +736,7 @@ function StepperDLCValidator()
                     filesList.String = displayNames;
                 end
             case quitButton
-                onClose;
+                onClose(c);
                 changeDisplay = 0;
             case deleteMarkerButton
                 if isempty(updatedFrames)
@@ -736,6 +757,8 @@ function StepperDLCValidator()
                     bodyDataLine.YData = bodyAngles;
                     if val > 1
                         markerDropdownMenu.Value = val - 1;
+                    else
+                        sendToDLCButton.Enable = 'off';
                     end
                 end
             case gotoMarkerButton
@@ -785,11 +808,43 @@ function StepperDLCValidator()
                 changeDisplay = 0;
             case sendToDLCButton
                 changeDisplay = 0;
+            case badTrackingMenuItem
+                pointIndex = strcmp(BODY_NAMES, b.Parent.Tag);
+
+                % Update point location
+                if strcmp(b.Checked, 'off')
+                    pPoints(frameIndex, pointIndex) = -inf; % Since this is human inputted, the probability should be inf to signify an unambiguous edited point
+                else
+                    pPoints(frameIndex, pointIndex) = inf;
+                end
+                
+                getBodyAngles();
+                getHeadAngles();
+                
+                % It marker is not added, add it
+                markerIndex = find(updatedFrames == frameIndex, 1);
+                if isempty(markerIndex)
+                    updatedFrames = [updatedFrames; frameIndex];
+                    updateFrames();
+                end
+
+                showFrame();
+            case editPoints
+                b.ContextMenu.Tag = b.Label;
+                
+                pointIndex = find(strcmp(BODY_NAMES, b.Label), 1);
+                if ~isempty(pointIndex)
+                    if pPoints(frameIndex, pointIndex) == -inf
+                        badTrackingMenuItem.Checked = 'on';
+                    else
+                        badTrackingMenuItem.Checked = 'off';
+                    end
+                end
             otherwise
                 error('I do not know how you did this, but you did something wrong. Contact your local Mike Rauscher for assistance');
         end
 
-        % If display needs to be changed
+        % If display needs to be changed 
         if strcmp(videoTimer.Running, 'off') && changeDisplay
             showFrame();
         end
@@ -807,7 +862,11 @@ function StepperDLCValidator()
         nextFileButton.Enable = status;
         markButton.Enable = status;
         unmarkButton.Enable = status;
-        sendToDLCButton.Enable = status;
+        
+        if ~isempty(updatedFrames)
+            sendToDLCButton.Enable = status;
+        end
+        
         deleteButton.Enable = status;
         saveButton.Enable = status;
         filesList.Enable = status;
@@ -859,7 +918,12 @@ function StepperDLCValidator()
         % Plot points that can be edited and moved around, for use if the video
         % is not playing
         editPoints = cell(1, numEditPoints);
-    
+        
+        % Make menu for ROI points
+        wingPointMenu = uicontextmenu;
+        badTrackingMenuItem = uimenu(wingPointMenu, 'Text', 'Bad Tracking', 'Checked', 'off');
+        badTrackingMenuItem.MenuSelectedFcn = @onClick;
+
         % Loop through each point that can be displayed
         for k = 1 : numEditPoints
             newPoint = images.roi.Point(videoAxis);
@@ -869,8 +933,13 @@ function StepperDLCValidator()
             newPoint.Deletable = 0;
             addlistener(newPoint, 'MovingROI', @onPointMoved);
             addlistener(newPoint, 'ROIMoved', @onPointMoved);
+            addlistener(newPoint, 'ROIClicked', @onClick);
     
             editPoints{k} = newPoint;
+
+            if k > 11
+                set(newPoint, 'uicontextmenu', wingPointMenu);
+            end
         end
 
         xticks(videoAxis, []);
@@ -912,6 +981,7 @@ function StepperDLCValidator()
         if isempty(updatedFrames)
             markerDropdownMenu.Value = 1;
             markerDropdownMenu.String = ' ';
+            sendToDLCButton.Enable = 'off';
         else
             frameStrings = cell(length(updatedFrames)); % Store the names of the frames that were updated
             
@@ -922,6 +992,7 @@ function StepperDLCValidator()
             end
             markerDropdownMenu.String = frameStrings; % Set the frames in the dropdown menu
             markerDropdownMenu.Value = sortingIndices(end); % Set the selection to be the last updated frame
+            sendToDLCButton.Enable = 'on';
         end    
         
         timerRunning = strcmp(videoTimer.Running, 'on'); % Check if the video timer was running before
@@ -984,6 +1055,7 @@ function StepperDLCValidator()
         xPoints = csv(:, 2 : 3 : end);
         yPoints = csv(:, 3 : 3 : end);
         pPoints = csv(:, 4 : 3 : end);
+        updatedFrames = [];
     end
 
     %% Set Frame Index Function
@@ -1226,7 +1298,7 @@ function StepperDLCValidator()
     function onClose(~, ~)
         % Display confirmation message
         confirm = questdlg('Quit?', '', 'Yes', 'No', 'No');
-        
+
         if ~strcmp(confirm, 'Yes')
             return;
         end
@@ -1234,13 +1306,13 @@ function StepperDLCValidator()
         if autosaveCheckBox.Value == 1
             onClick(saveButton, []); % Click save button before proceeding
         end
-        
+
         % Save settings file
         settings = struct();
         settings.autosave = autosaveCheckBox.Value;
         settings.lastfile = videoNames{filesList.Value};
         settings.dir = directory;
-        
+
         % Save into stepperdlcvalidator.set
         save(settingsFile, 'settings');
 
