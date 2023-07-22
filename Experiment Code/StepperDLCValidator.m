@@ -623,7 +623,7 @@ function StepperDLCValidator()
                 b.String = directory;
                 filesList.Value = 1;
                 filesList.String = displayNames;
-                loadVideo(filesLIst.Value); % Load first video
+                loadVideo(filesList.Value); % Load first video
             case filesList 
                 % Save the current video if autosave is selected
                 if b.Value ~= currentVideoIndex && autosaveCheckBox.Value == 1
@@ -736,7 +736,10 @@ function StepperDLCValidator()
                     filesList.String = displayNames;
                 end
             case quitButton
-                onClose(c);
+                status = onClose(c);
+                if ~status
+                    return; % Quit successful so stop executing further commands
+                end
                 changeDisplay = 0;
             case deleteMarkerButton
                 if isempty(updatedFrames)
@@ -807,7 +810,11 @@ function StepperDLCValidator()
             case unmarkButton
                 changeDisplay = 0;
             case sendToDLCButton
-                changeDisplay = 0;
+                confirm = questdlg('Send to DLC?', 'Confirm', 'Yes', 'No', 'No');
+
+                if strcmp(confirm, 'Yes')
+                    sendToDLC();
+                end
             case badTrackingMenuItem
                 pointIndex = strcmp(BODY_NAMES, b.Parent.Tag);
 
@@ -1290,16 +1297,121 @@ function StepperDLCValidator()
         markerDropdownMenu.Position(1) = prevMarkerButton.Position(1) + 33;
         markerDropdownMenu.Position(3) = 299;
     end
+
+    %% Send to DLC Function
+    % This function sends the revised points to DLC. This also saves the
+    % points to the PROC file as well.
+    function sendToDLC()
+        % Clear bad tracking points and set them to NaN
+        dlcXPoints = xPoints(updatedFrames, :);
+        dlcYPoints = yPoints(updatedFrames, :);
+        dlcPPoints = pPoints(updatedFrames, :);
+        [row, col] = find(dlcPPoints == -inf);
+        dlcXPoints(row, col) = nan;
+        dlcYPoints(row, col) = nan;
+
+        % Check if folder name exists
+        folderName = extractBefore(displayNames{currentVideoIndex}, 'DLC_');
+        folder = dir([DLC_FOLDER filesep 'labeled-data' filesep folderName]);
+
+        % Check if folder exists
+        if isempty(folder)
+            mkdir([DLC_FOLDER filesep 'labeled-data'], folderName);
+            folder = dir([DLC_FOLDER filesep 'labeled-data' filesep folderName]);
+        end
+
+        % Locate config file
+        configFile = dir([DLC_FOLDER filesep 'config.yaml']);
+        if isempty(configFile)
+            error('Cannot find config file. Please confirm that the DLC folder address is set properly.');
+        end
+
+        % Load config file
+        configFile = configFile(1);
+        config = fileread([configFile.folder filesep configFile.name]);
+        scorer = char(extractBetween(config, 'scorer: ', 'date')); % Get scorer
+        scorer = scorer(1 : end - 2); % Get rid of the last 2 characters since they are new line shenanigans
+        
+        csvFile = dir([folder(1).folder filesep '*.csv']);
+
+        % Check if CSV file exists
+        if isempty(csvFile)
+            % Make new CSV file
+            disp('Stop');
+        else
+            % Load existing CSV file
+            labeledData = fileread([csvFile(1).folder filesep csvFile(1).name]);
+            labeledDataLines = splitlines(labeledData);
+
+            % Get rid of last line if blank
+            lastLine = labeledDataLines(end);
+            if isempty(lastLine{1, 1})
+                labeledDataLines = labeledDataLines(1 : end - 1);
+            end
+            labelLines = labeledDataLines(1 : 3); % Save labels for later
+            labeledDataLines = labeledDataLines(4 : end); % Get rid of first 3 lines
+            
+            labeledPoints = zeros(count(labeledData, 'labeled-data'), length(BODY_NAMES) + 1); % Pre-allocate matrix
+            
+            for i = 1 : count(labeledData, 'labeled-data')
+                line = labeledDataLines{i};
+
+                % Extract image name
+                frame = extractBetween(line, 'img', '.png');
+                labeledPoints(i, 1) = str2double(frame);
+
+                % Extract points
+                pointString = extractAfter(line, '.png,');
+                points = split(pointString, ','); % Split by commas
+
+                % Loop through each point
+                for k = 1 : length(points)
+                    point = points(k);
+                    if ~isempty(point)
+                        labeledPoints(i, k + 1) = str2double(point); % There is some precision loss when converting to MATLAB most likely but it's negligible
+                    else
+                        labeledPoints(i, k + 1) = NaN; % If there is nothing there, that means that it wasn't marked
+                    end
+                end
+            end
+            
+            
+            % Add updated frames
+            for i = 1 : length(updatedFrames)   
+                newPoints = zeros(1, length(BODY_NAMES) + 1); % Pre-allocate new points matrix
+
+                % Interleave x and y points
+                for k = 1 : length(BODY_NAMES)
+                    newPoints(k * 2) = dlcXPoints(i, k);
+                    newPoints(k * 2 + 1) = dlcYPoints(i, k);
+                end
+                
+                newPoints(1) = updatedFrames(i) - 1; % Prepend frame number (but starting with 0 indexing)
+
+                rowIndex = find(labeledPoints(1, :) == newPoints(1), 1); % Find row of existing frame if it exists already
+                % Add row to labeledPoints if they don't exist yet
+                if isempty(rowIndex)
+                    labeledPoints(end + 1, :) = newPoints; % Add row to end of labeledPoints
+                else
+                    labeledPoints(rowIndex, :) = newPoints; % Replace existing row with new data
+                end
+            end
+
+            labeledPoints = sort(labeledPoints, 1); % Sort so frames are in order
+        end
+        disp('Done');
+    end
     
     %% Closing Function
     % The below function is run whenever a user attempts to close the 
     % figure. A confirmation is given, and then the settings are
     % saved for next time.
-    function onClose(~, ~)
+    function status = onClose(~, ~)
         % Display confirmation message
         confirm = questdlg('Quit?', '', 'Yes', 'No', 'No');
 
         if ~strcmp(confirm, 'Yes')
+            status = 1;
             return;
         end
 
@@ -1318,6 +1430,7 @@ function StepperDLCValidator()
 
         stop(videoTimer); % Stops frame succession if it was running
         drawnow; % Update figure
+        status = 0;
         closereq; % Close figure
     end
 end
