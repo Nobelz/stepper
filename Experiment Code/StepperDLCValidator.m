@@ -112,6 +112,10 @@ function StepperDLCValidator()
     videoWidth = round(768 * (videoReader.Width / videoReader.Height));
     videoHeight = 768;
     
+    % Setup Python
+    pyenv(Version = '3.10');
+    pyrun('import deeplabcut'); % Import deeplabcut
+
     %% Create GUI
     % Make GUI Figure
     c = figure('Name', 'Stepper DLC Validator', ...
@@ -307,7 +311,7 @@ function StepperDLCValidator()
         'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
     head2RButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Roots', ...
         'Position', [0 0 1 1], 'Callback', @updateTrackingParameters);
-    headButtons = [head7PtButton, head6UDButton, head4LRButton, 
+    headButtons = [head7PtButton, head6UDButton, head4LRButton, ...
         head4UDButton, head2TButton, head2RButton];
 
     % Update tracking parameters
@@ -1346,8 +1350,24 @@ function StepperDLCValidator()
 
         % Check if CSV file exists
         if isempty(csvFile)
-            % Make new CSV file
-            disp('Stop');
+            % Get points to go into csv file
+            labeledPoints = zeros(length(updatedFrames), length(BODY_NAMES) * 2 + 1); % Make labeled points matrix
+
+            % Add updated frames
+            for i = 1 : length(updatedFrames)   
+                newPoints = zeros(1, length(BODY_NAMES) + 1); % Pre-allocate new points matrix
+
+                % Interleave x and y points
+                for k = 1 : length(BODY_NAMES)
+                    newPoints(k * 2) = dlcXPoints(i, k);
+                    newPoints(k * 2 + 1) = dlcYPoints(i, k);
+                end
+                
+                newPoints(1) = updatedFrames(i) - 1; % Prepend frame number (but starting with 0 indexing)
+                labeledPoints(i, :) = newPoints; % Add row to labeledPoints
+            end
+
+            labeledPoints = sort(labeledPoints, 1); % Sort so frames are in order
         else
             % Load existing CSV file
             labeledData = fileread([csvFile(1).folder filesep csvFile(1).name]);
@@ -1358,10 +1378,9 @@ function StepperDLCValidator()
             if isempty(lastLine{1, 1})
                 labeledDataLines = labeledDataLines(1 : end - 1);
             end
-            labelLines = labeledDataLines(1 : 3); % Save labels for later
             labeledDataLines = labeledDataLines(4 : end); % Get rid of first 3 lines
             
-            labeledPoints = zeros(count(labeledData, 'labeled-data'), length(BODY_NAMES) + 1); % Pre-allocate matrix
+            labeledPoints = zeros(count(labeledData, 'labeled-data'), length(BODY_NAMES) * 2 + 1); % Pre-allocate matrix
             
             for i = 1 : count(labeledData, 'labeled-data')
                 line = labeledDataLines{i};
@@ -1384,7 +1403,6 @@ function StepperDLCValidator()
                     end
                 end
             end
-            
             
             % Add updated frames
             for i = 1 : length(updatedFrames)   
@@ -1409,6 +1427,62 @@ function StepperDLCValidator()
 
             labeledPoints = sort(labeledPoints, 1); % Sort so frames are in order
         end
+
+        % Make new CSV file
+        % Make first lines
+        scorerLine = [{'scorer'}, {''}, {''}, repmat({scorer}, 1, length(BODY_NAMES) * 2)];
+        partsLine = [{'bodyparts'}, {''}, {''}];
+        
+        % Add body parts
+        for i = 1 : length(BODY_NAMES)
+            partsLine = [partsLine BODY_NAMES{i} BODY_NAMES{i}];
+        end
+        
+        coordsLine = [{'coords'}, {''}, {''}, repmat([{'x'}, {'y'}], 1, length(BODY_NAMES))];
+        
+        firstLines = {scorerLine; partsLine; coordsLine};
+        
+        leadingZeros = ['%0' num2str(floor(log10(numFrames)) + 1) 'd']; % Get leading zeros to match DLC naming convention
+                
+        dataLines = cell(size(labeledPoints, 1), 1);
+        % Add actual data
+        for i = 1 : size(labeledPoints, 1)
+            imgName = ['img' num2str(labeledPoints(i, 1), leadingZeros) '.png']; % Gets image name
+            
+            % Add image line to new csv
+            dataLine = [{'labeled-data'}, {folderName}, {imgName}];
+            
+            % Add bodypart coordinates
+            for k = 1 : length(BODY_NAMES) * 2
+                dataLine = [dataLine cellstr(num2str(labeledPoints(i, k + 1)))];
+            end
+            
+            strrep(dataLine, 'NaN', ''); % Replace NaN values with empty Strings
+            % Add to data lines
+            dataLines{i, 1} = dataLine;
+
+            % Create image for frame
+            newFile = fullfile(folder(1).folder, imgName); % Create file
+            image = read(videoReader, labeledPoints(i, 1) + 1); % Get image data
+            imwrite(image, newFile); % Write to new file
+        end
+
+        % Combine all csv lines into one
+        newCsv = [firstLines; dataLines];
+        
+        % Write table to CSV
+        outCsvFileName = [folder(1).folder filesep ['CollectedData_' scorer '.csv']];
+        outFile = fullfile(outCsvFileName);
+
+        writetable(cell2table(newCsv), outFile, 'WriteVariableNames', 0); % Write to CSV file
+        
+        pyenv(Version="3.10"); % Ensure Python exists using 3.10
+
+        % Run Python CSV to h5 using deeplabcut
+        pyCommand = ['deeplabcut.convertcsv2h5("' configFile.folder filesep configFile.name '", userfeedback=False)'];
+        pyCommand = strrep(pyCommand, '\', '/'); % Replace slashes
+
+        pyrun(pyCommand); % Convert csv to h5
         disp('Done');
     end
     
