@@ -1329,12 +1329,14 @@ function StepperDLCValidator()
         dlcYPoints(row, col) = nan;
 
         % Check if folder name exists
-        folderName = extractBefore(displayNames{currentVideoIndex}, 'DLC_');
+        folderName = extractAfter(extractBefore(displayNames{currentVideoIndex}, 'DLC_'), '*');
         folder = dir([DLC_FOLDER filesep 'labeled-data' filesep folderName]);
-
+        
         % Check if folder exists
         if isempty(folder)
-            mkdir([DLC_FOLDER filesep 'labeled-data'], folderName);
+            dlcFolder = dir(DLC_FOLDER);
+            dlcFolder = dlcFolder(1).folder;
+            mkdir(fullfile(dlcFolder, 'labeled-data'), folderName);
             folder = dir([DLC_FOLDER filesep 'labeled-data' filesep folderName]);
         end
 
@@ -1487,7 +1489,6 @@ function StepperDLCValidator()
         pyCommand = strrep(pyCommand, '\', '/'); % Replace slashes
 
         pyrun(pyCommand); % Convert csv to h5
-        disp('Done');
     end
     
     %% Closing Function
