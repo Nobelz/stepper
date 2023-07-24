@@ -13,6 +13,8 @@ function StepperDLCValidator()
     %% Define Constants
     SHOW_WINGS = 1; % Whether to show wings or not
     DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
+    FINAL_DATA_FOLDER = '../../Stepper Data/Analyzed Data';
+    REJECTED_DATA_FOLDER = '../../Stepper Data/New Data/Rejected Data';
     BODY_COLOR = [253, 141, 60] ./ 255;
     HEAD_COLOR = [43, 140, 190] ./ 255;
     EDIT_COLOR = [26, 152, 80] ./ 255;
@@ -275,7 +277,7 @@ function StepperDLCValidator()
         'Position', [0 0 1 1], 'Callback', @onClick);
 
     % Add move button
-    moveButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Quit', ...
+    moveButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Move Files...', ...
         'Position', [0 0 1 1], 'Callback', @onClick);
     
     % Add frame buttons
@@ -746,7 +748,11 @@ function StepperDLCValidator()
 
                 index = find(strcmp(savedFiles, videoNames{currentVideoIndex}), 1);
                 if isempty(index)
-                    savedFiles = {savedFiles; videoNames{currentVideoIndex}};
+                    if isempty(savedFiles)
+                        savedFiles = videoNames{currentVideoIndex};
+                    else
+                        savedFiles = {savedFiles; videoNames{currentVideoIndex}};
+                    end
                 end
 
                 changeDisplay = 0;
@@ -764,15 +770,41 @@ function StepperDLCValidator()
 
                 index = find(strcmp(savedFiles, videoNames{currentVideoIndex}), 1);
                 if ~isempty(index)
-                    savedFiles{index} = {};
+                    if iscell(savedFiles)
+                        savedFiles{index} = savedFiles{end};
+                        savedFiles = savedFiles{1 : end - 1};
+                    else
+                        savedFiles = {};
+                    end
                 end
             case moveButton
-                % TODO
-                status = onClose(c);
-                if ~status
-                    return; % Quit successful so stop executing further commands
-                end
-                changeDisplay = 0;
+                if isempty(savedFiles) && isempty(markedFiles)
+                    uiwait(msgbox({'There are no videos to move yet.', 'Please mark/save videos first.'}, 'No Videos'));
+                    changeDisplay = 0;
+                else
+                    % Move videos to final folder
+                    if ~iscell(savedFiles)
+                        moveVideo(savedFiles, FINAL_DATA_FOLDER);
+                    elseif length(savedFiles) > 1
+                        for i = 1 : length(savedFiles)
+                            moveVideo(savedFiles{i}, FINAL_DATA_FOLDER);
+                        end
+                    end
+
+                    % Move videos to rejected folder
+                    if ~iscell(markedFiles)
+                        moveVideo(markedFiles, REJECTED_DATA_FOLDER);
+                    elseif length(markedFiles) > 1
+                        for i = 1 : length(markedFiles)
+                            moveVideo(markedFiles{i}, REJECTED_DATA_FOLDER);
+                        end
+                    end
+
+                    status = onClose(c);
+                    if ~status
+                        return; % Quit successful so stop executing further commands
+                    end
+                end 
             case deleteMarkerButton
                 if isempty(updatedFrames)
                     changeDisplay = 0;
@@ -846,7 +878,11 @@ function StepperDLCValidator()
 
                 index = find(strcmp(markedFiles, videoNames{currentVideoIndex}), 1);
                 if isempty(index)
-                    markedFiles = {markedFiles; videoNames{currentVideoIndex}};
+                    if isempty(markedFiles)
+                        markedFiles = videoNames{currentVideoIndex};
+                    else
+                        markedFiles = {markedFiles; videoNames{currentVideoIndex}};
+                    end
                 end
 
                 changeDisplay = 0;
@@ -854,7 +890,12 @@ function StepperDLCValidator()
                 
                 index = find(strcmp(markedFiles, videoNames{currentVideoIndex}), 1);
                 if ~isempty(index)
-                    markedFiles{index} = {};
+                    if iscell(markedFiles)
+                        markedFiles{index} = markedFiles{end};
+                        markedFiles = markedFiles{1 : end - 1};
+                    else
+                        markedFiles = {};
+                    end
                 end
 
                 % Remove exclamation point to indicate it has been unsaved
@@ -932,6 +973,18 @@ function StepperDLCValidator()
         deleteButton.Enable = status;
         saveButton.Enable = status;
         filesList.Enable = status;
+    end
+
+    %% Move Video Function
+    % This function moves the video to the specified folder.
+    function moveVideo(videoName, folder)
+        baseName = extractBefore(videoName, '_0000');
+        relatedFiles = dir([baseName '*']);
+
+        for i = 1 : length(relatedFiles)
+            file = fullfile(relatedFiles(i).folder, relatedFiles(i).name);
+            movefile(file, folder);
+        end
     end
 
     %% Load Video Function
@@ -1161,7 +1214,11 @@ function StepperDLCValidator()
 
                     index = find(strcmp(savedFiles, videoFiles{end}), 1);
                     if isempty(index)
-                        savedFiles = {savedFiles; videoFiles{end}};
+                        if isempty(savedFiles)
+                            savedFiles = videoFiles{end};
+                        else
+                            savedFiles = {savedFiles; videoFiles{end}};
+                        end
                     end
                 end
             end
