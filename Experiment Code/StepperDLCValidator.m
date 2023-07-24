@@ -41,14 +41,24 @@ function StepperDLCValidator()
             directory = settings.dir;
     
             [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
-    
-            lastVideoIndex = find(strcmp(videoNames, settings.lastfile), 1); % Find the last video open
             
-            % If last video cannot be found, just go to the first one
-            if isempty(lastVideoIndex)
-                lastVideoIndex = 1;
+            if ~isempty(videoNames)
+                lastVideoIndex = find(strcmp(videoNames, settings.lastfile), 1); % Find the last video open
+                
+                % If last video cannot be found, just go to the first one
+                if isempty(lastVideoIndex)
+                    lastVideoIndex = 1;
+                end
+                settingsLoaded = 1;
+            else
+                % Have user get the correct directory
+                directory = uigetdir('.', 'Select Video Folder');
+                [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
+        
+                autosave = 0;
+                lastVideoIndex = 1; % Start at first video
             end
-        else
+         else
             % Have user get the correct directory
             directory = uigetdir('.', 'Select Video Folder');
             [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
