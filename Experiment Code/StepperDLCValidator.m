@@ -782,6 +782,12 @@ function StepperDLCValidator()
                     uiwait(msgbox({'There are no videos to move yet.', 'Please mark/save videos first.'}, 'No Videos'));
                     changeDisplay = 0;
                 else
+                    % Locate config file
+                    configFile = dir([DLC_FOLDER filesep 'config.yaml']);
+                    if isempty(configFile)
+                        error('Cannot find config file. Please confirm that the DLC folder address is set properly.');
+                    end
+                    
                     % Move videos to final folder
                     if ~iscell(savedFiles)
                         moveVideo(savedFiles, FINAL_DATA_FOLDER);
@@ -793,17 +799,24 @@ function StepperDLCValidator()
 
                     % Move videos to rejected folder
                     if ~iscell(markedFiles)
+                        % Add rejected videos to training dataset
+                        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", ["' markedFiles '"], copy_videos=True, extract_frames=True)'];
+                        pyCommand = strrep(pyCommand, '\', '/');
+                        pyrun(pyCommand);
+
                         moveVideo(markedFiles, REJECTED_DATA_FOLDER);
                     elseif length(markedFiles) > 1
                         for i = 1 : length(markedFiles)
+                            % Add rejected videos to training dataset
+                            pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", ["' markedFiles{i} '"], copy_videos=True, extract_frames=True)'];
+                            pyCommand = strrep(pyCommand, '\', '/');
+                            pyrun(pyCommand);
+
                             moveVideo(markedFiles{i}, REJECTED_DATA_FOLDER);
                         end
                     end
 
-                    status = onClose(c);
-                    if ~status
-                        return; % Quit successful so stop executing further commands
-                    end
+                    onClose(c, 0, 1);
                 end 
             case deleteMarkerButton
                 if isempty(updatedFrames)
@@ -1597,12 +1610,21 @@ function StepperDLCValidator()
     % The below function is run whenever a user attempts to close the 
     % figure. A confirmation is given, and then the settings are
     % saved for next time.
-    function status = onClose(~, ~)
+    function onClose(~, ~, force)
+        if nargin < 3
+            force = 0;
+        end
+
+        if force == 1
+            drawnow; % Update figure
+            closereq; % Close figure
+            return;
+        end
+
         % Display confirmation message
         confirm = questdlg('Quit?', '', 'Yes', 'No', 'No');
 
         if ~strcmp(confirm, 'Yes')
-            status = 1;
             return;
         end
 
@@ -1621,7 +1643,6 @@ function StepperDLCValidator()
 
         stop(videoTimer); % Stops frame succession if it was running
         drawnow; % Update figure
-        status = 0;
         closereq; % Close figure
     end
 end
