@@ -409,6 +409,10 @@ function StepperDLCValidator()
                 curFrame = setFrameIndex(1);
             else
                 stop(videoTimer);
+                readOnlyPoints.Visible = 'off';
+                for i = showPoints
+                    editPoints{i}.Visible = 'on';
+                end
                 playPauseButton.String = '>';
             end
         else
