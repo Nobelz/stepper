@@ -272,11 +272,12 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
             exp.pattern = pattern;
         end
 
-        fileName = [treatment '_F' num2str(flyNum) '_T' num2str(flyTrial)...
-            '_' haltereString(haltere + 1, :) '_' condition '_' ...
-            string(time, 'yyyyMMdd_HHmmss')]; 
-            
-        fileName = strjoin(fileName, '');
+        if strcmp(condition, 'TestLinearity')
+            fileName = [treatment num2str(flyNum) 'TestLinearity'];
+        else
+            fileName = [treatment num2str(flyNum) 'T' num2str(flyTrial) condition];
+        end
+        
         fileName = fullfile(folderName, fileName);
         fprintf('Saving file to folder...\n');
         save(fileName, 'exp');
