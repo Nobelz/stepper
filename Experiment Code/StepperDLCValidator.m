@@ -1449,7 +1449,12 @@ function StepperDLCValidator()
         firstLines = {scorerLine; partsLine; coordsLine};
         
         leadingZeros = ['%0' num2str(floor(log10(numFrames)) + 1) 'd']; % Get leading zeros to match DLC naming convention
-                
+                        
+        % Add video using deeplabcut command
+        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", ["' videoNames{currentVideoIndex} '"], copy_videos=True)'];
+        pyCommand = strrep(pyCommand, '\', '/'); % Replace slashes
+        pyrun(pyCommand);
+
         dataLines = cell(size(labeledPoints, 1), 1);
         % Add actual data
         for i = 1 : size(labeledPoints, 1)
@@ -1482,8 +1487,6 @@ function StepperDLCValidator()
 
         writetable(cell2table(newCsv), outFile, 'WriteVariableNames', 0); % Write to CSV file
         
-        pyenv(Version="3.10"); % Ensure Python exists using 3.10
-
         % Run Python CSV to h5 using deeplabcut
         pyCommand = ['deeplabcut.convertcsv2h5("' configFile.folder filesep configFile.name '", userfeedback=False)'];
         pyCommand = strrep(pyCommand, '\', '/'); % Replace slashes
