@@ -29,6 +29,9 @@ function StepperDLCValidator()
     %% Load Settings
     settingsLoaded = 0;
 
+    markedFiles = {}; % Stores which files should be moved to deeplabcut for frame extraction analysis
+    savedFiles = {}; % Stores which files should be saved and moved to the save folder
+
     while ~settingsLoaded
         % Locate settings file
         directory = pwd;
@@ -39,7 +42,7 @@ function StepperDLCValidator()
             load(settingsFile, '-mat', 'settings'); % Load settings from file
             autosave = settings.autosave;
             directory = settings.dir;
-    
+
             [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
             
             if ~isempty(videoNames)
@@ -98,7 +101,6 @@ function StepperDLCValidator()
     bodyLinePoints = []; % Stores the points to draw the line for the body
 
     currentVideoIndex = lastVideoIndex; % Stores the index of the current video being displayed
-
     loadFly(currentVideoIndex); % Load fly information
 
     % Display points
@@ -272,8 +274,8 @@ function StepperDLCValidator()
     deleteButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Delete', ...
         'Position', [0 0 1 1], 'Callback', @onClick);
 
-    % Add quit button
-    quitButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Quit', ...
+    % Add move button
+    moveButton = uicontrol(c, 'Style', 'pushbutton', 'String', 'Quit', ...
         'Position', [0 0 1 1], 'Callback', @onClick);
     
     % Add frame buttons
@@ -741,6 +743,12 @@ function StepperDLCValidator()
                     filesList.String = displayNames;
                 end
 
+
+                index = find(strcmp(savedFiles, videoNames{currentVideoIndex}), 1);
+                if isempty(index)
+                    savedFiles = {savedFiles; videoNames{currentVideoIndex}};
+                end
+
                 changeDisplay = 0;
             case deleteButton
                 procName = procNames{filesList.Value};
@@ -753,7 +761,13 @@ function StepperDLCValidator()
                     displayNames{filesList.Value} = displayNames{filesList.Value}(2 : end);
                     filesList.String = displayNames;
                 end
-            case quitButton
+
+                index = find(strcmp(savedFiles, videoNames{currentVideoIndex}), 1);
+                if ~isempty(index)
+                    savedFiles{index} = {};
+                end
+            case moveButton
+                % TODO
                 status = onClose(c);
                 if ~status
                     return; % Quit successful so stop executing further commands
@@ -823,9 +837,32 @@ function StepperDLCValidator()
                     end
                     curFrame = setFrameIndex(val);
                 end
-            case markButton % TODO: IMPLEMENT
+            case markButton
+                % Add exclamation point to indicate that it has been marked
+                if ~strcmp(displayNames{currentVideoIndex}(1), '!')
+                    displayNames{currentVideoIndex} = ['!!!' displayNames{currentVideoIndex}];
+                    filesList.String = displayNames;
+                end
+
+                index = find(strcmp(markedFiles, videoNames{currentVideoIndex}), 1);
+                if isempty(index)
+                    markedFiles = {markedFiles; videoNames{currentVideoIndex}};
+                end
+
                 changeDisplay = 0;
             case unmarkButton
+                
+                index = find(strcmp(markedFiles, videoNames{currentVideoIndex}), 1);
+                if ~isempty(index)
+                    markedFiles{index} = {};
+                end
+
+                % Remove exclamation point to indicate it has been unsaved
+                if strcmp(displayNames{filesList.Value}(1), '!')
+                    displayNames{filesList.Value} = displayNames{filesList.Value}(4 : end);
+                    filesList.String = displayNames;
+                end
+
                 changeDisplay = 0;
             case sendToDLCButton
                 confirm = questdlg('Send to DLC?', 'Confirm', 'Yes', 'No', 'No');
@@ -1121,6 +1158,11 @@ function StepperDLCValidator()
                 
                 if isfile(procFiles{end}) 
                     displayNames{end} = ['*' displayNames{end}]; % Indicates that a proc file already exists for the video
+
+                    index = find(strcmp(savedFiles, videoFiles{end}), 1);
+                    if isempty(index)
+                        savedFiles = {savedFiles; videoFiles{end}};
+                    end
                 end
             end
         end
@@ -1152,14 +1194,14 @@ function StepperDLCValidator()
         nextFileButton.Position(3) = 75;
         nextFileButton.Position(4) = filesList.Position(4) / 2;
 
-        % Update quit button
-        quitButton.Position(1) = filesList.Position(3) + 150;
-        quitButton.Position(2) = 0;
-        quitButton.Position(3) = 75;
-        quitButton.Position(4) = filesList.Position(4) / 3;
+        % Update move button
+        moveButton.Position(1) = filesList.Position(3) + 150;
+        moveButton.Position(2) = 0;
+        moveButton.Position(3) = 75;
+        moveButton.Position(4) = filesList.Position(4) / 3;
 
         % Update delete button
-        deleteButton.Position = quitButton.Position;
+        deleteButton.Position = moveButton.Position;
         deleteButton.Position(2) = deleteButton.Position(2) + deleteButton.Position(4);
         
         % Update save button
@@ -1474,8 +1516,8 @@ function StepperDLCValidator()
 
             % Create image for frame
             newFile = fullfile(folder(1).folder, imgName); % Create file
-            image = read(videoReader, labeledPoints(i, 1) + 1); % Get image data
-            imwrite(image, newFile); % Write to new file
+            im = read(videoReader, labeledPoints(i, 1) + 1); % Get image data
+            imwrite(im, newFile); % Write to new file
         end
 
         % Combine all csv lines into one
