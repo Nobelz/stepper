@@ -14,7 +14,7 @@ function StepperDLCValidator()
     SHOW_WINGS = 1; % Whether to show wings or not
     DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
     FINAL_DATA_FOLDER = '../../Stepper Data/Analyzed Data';
-    REJECTED_DATA_FOLDER = '../../Stepper Data/New Data/Rejected Data';
+    REJECTED_DATA_FOLDER = '../../Stepper Data/Rejected Data';
     BODY_COLOR = [253, 141, 60] ./ 255;
     HEAD_COLOR = [43, 140, 190] ./ 255;
     EDIT_COLOR = [26, 152, 80] ./ 255;
@@ -1623,8 +1623,8 @@ function StepperDLCValidator()
 
             % Create image for frame
             newFile = fullfile(folder(1).folder, imgName); % Create file
-            im = read(videoReader, labeledPoints(i, 1) + 1); % Get image data
-            imwrite(im, newFile); % Write to new file
+            newImage = read(videoReader, labeledPoints(i, 1) + 1); % Get image data
+            imwrite(newImage, newFile); % Write to new file
         end
 
         % Combine all csv lines into one
