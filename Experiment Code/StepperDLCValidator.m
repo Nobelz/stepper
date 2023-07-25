@@ -350,6 +350,8 @@ function StepperDLCValidator()
 
     if isfile(procNames{lastVideoIndex})
         updateFrames();
+    else
+        sendToDLCButton.Enable = 'off';
     end
     curFrame = setFrameIndex(1);
     showFrame();
@@ -818,21 +820,22 @@ function StepperDLCValidator()
                     
                     markedFileString = '';
                     for i = 1 : length(markedFiles)
-                        markedFileString = ['"' markedFiles{i}{1} '",'];
+                        markedFileString = [markedFileString '"' markedFiles{i}{1} '",'];
                     end
                     markedFileString = markedFileString(1 : end - 1); % Get rid of last comma
+                    % Add rejected videos to training dataset
+                    pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", [' markedFileString '], copy_videos=True)'];
+                    pyCommand = strrep(pyCommand, '\', '/');
+                    pyrun(pyCommand);
 
                     for i = 1 : length(markedFiles)
-                        % Add rejected videos to training dataset
-                        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", [' markedFileString '], copy_videos=True, extract_frames=True)'];
-                        pyCommand = strrep(pyCommand, '\', '/');
-                        pyrun(pyCommand);
-
                         moveVideo(markedFiles{i}{1}, REJECTED_DATA_FOLDER);
                     end
 
                     onClose(c, 0, 1);
                 end 
+
+                changeDisplay = 0;
             case deleteMarkerButton
                 if isempty(updatedFrames)
                     changeDisplay = 0;
@@ -920,7 +923,6 @@ function StepperDLCValidator()
 
                 changeDisplay = 0;
             case unmarkButton
-                
                 index = 0;
                 for i = 1 : length(markedFiles)
                     markedFile = markedFiles{i};
@@ -1646,6 +1648,7 @@ function StepperDLCValidator()
         end
 
         if force == 1
+            uiwait(msgbox({'Videos moved successfully.', 'Quitting in 5 seconds...'}, 'Quitting'), 5);
             drawnow; % Update figure
             closereq; % Close figure
             return;
