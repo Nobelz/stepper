@@ -660,7 +660,10 @@ function StepperDLCValidator()
                 if b.Value ~= currentVideoIndex && autosaveCheckBox.Value == 1
                     onClick(saveButton, []);
                 end
-                loadVideo(b.Value); % Load new video
+
+                if b.Value ~= currentVideoIndex
+                    loadVideo(b.Value); % Load new video only if different index was selected
+                end
             case nextFileButton
                 if filesList.Value ~= length(videoNames)
                     if autosaveCheckBox.Value == 1
@@ -735,6 +738,8 @@ function StepperDLCValidator()
                     changeDisplay = 0;
                 end            
             case saveButton
+                onClick(unmarkButton, []); % Unmark file
+                
                 procName = procNames{currentVideoIndex};
                 fly = struct();
                 fly.csv = csv;
@@ -787,12 +792,12 @@ function StepperDLCValidator()
                         break;
                     end
                 end
-                if ~index
+                if index
                     if length(savedFiles) == 1
                         savedFiles = {};
                     else
                         savedFiles{index} = savedFiles{end};
-                        savedFiles = savedFiles{1 : end - 1};
+                        savedFiles = {savedFiles{1 : end - 1}};
                     end
                 end
             case moveButton
@@ -807,20 +812,23 @@ function StepperDLCValidator()
                     end
                     
                     % Move videos to final folder
-                    if ~iscell(savedFiles)
-                        for i = 1 : length(savedFiles)
-                            moveVideo(savedFiles{i}, FINAL_DATA_FOLDER);
-                        end
+                    for i = 1 : length(savedFiles)
+                        moveVideo(savedFiles{i}{1}, FINAL_DATA_FOLDER);
                     end
                     
-                    % TODO
+                    markedFileString = '';
+                    for i = 1 : length(markedFiles)
+                        markedFileString = ['"' markedFiles{i}{1} '",'];
+                    end
+                    markedFileString = markedFileString(1 : end - 1); % Get rid of last comma
+
                     for i = 1 : length(markedFiles)
                         % Add rejected videos to training dataset
-                        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", ["' markedFiles{i} '"], copy_videos=True, extract_frames=True)'];
+                        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", [' markedFileString '], copy_videos=True, extract_frames=True)'];
                         pyCommand = strrep(pyCommand, '\', '/');
                         pyrun(pyCommand);
 
-                        moveVideo(markedFiles{i}, REJECTED_DATA_FOLDER);
+                        moveVideo(markedFiles{i}{1}, REJECTED_DATA_FOLDER);
                     end
 
                     onClose(c, 0, 1);
@@ -890,6 +898,8 @@ function StepperDLCValidator()
                     curFrame = setFrameIndex(val);
                 end
             case markButton
+                onClick(deleteButton, []); % Delete file proc
+
                 % Add exclamation point to indicate that it has been marked
                 if ~strcmp(displayNames{currentVideoIndex}(1), '!')
                     displayNames{currentVideoIndex} = ['!!!' displayNames{currentVideoIndex}];
@@ -924,7 +934,7 @@ function StepperDLCValidator()
                         markedFiles = {};
                     else
                         markedFiles{index} = markedFiles{end};
-                        markedFiles = markedFiles{1 : end - 1};        
+                        markedFiles = {markedFiles{1 : end - 1}};        
                     end
                 end
 
@@ -1245,13 +1255,13 @@ function StepperDLCValidator()
                     index = 0;
                     for i = 1 : length(savedFiles)
                         saveFile = savedFiles{i};
-                        if strcmp(saveFile{1}, videoNames{currentVideoIndex})
+                        if strcmp(saveFile{1}, videoFiles{end})
                             index = i;
                             break;
                         end
                     end
                     if ~index
-                        savedFiles{end + 1} =  {videoNames{currentVideoIndex}};
+                        savedFiles{end + 1} =  {videoFiles{end}};
                     end
                 end
             end
