@@ -58,18 +58,24 @@ function StepperDLCValidator()
             else
                 % Have user get the correct directory
                 directory = uigetdir('.', 'Select Video Folder');
-                [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
-        
-                autosave = 0;
-                lastVideoIndex = 1; % Start at first video
+                if directory
+                    [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
+                    autosave = 0;
+                    lastVideoIndex = 1; % Start at first video
+                else
+                    videoNames = {};
+                end
             end
          else
-            % Have user get the correct directory
-            directory = uigetdir('.', 'Select Video Folder');
-            [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
-    
-            autosave = 0;
-            lastVideoIndex = 1; % Start at first video
+             % Have user get the correct directory
+             directory = uigetdir('.', 'Select Video Folder');
+             if directory
+                 [videoNames, displayNames, csvNames, procNames] = getVideoNames(directory);
+                 autosave = 0;
+                 lastVideoIndex = 1; % Start at first video
+             else
+                 videoNames = {};
+             end
         end
     
         % Check if the directory has any video files
@@ -117,7 +123,10 @@ function StepperDLCValidator()
     videoHeight = 768;
     
     % Setup Python
-    pyenv(Version = '3.10');
+    pe = pyenv;
+    if strcmp(pe.Version, '')
+        error('Python not installed or not setup correctly.');
+    end
     pyrun('import deeplabcut'); % Import deeplabcut
 
     %% Create GUI
@@ -745,14 +754,16 @@ function StepperDLCValidator()
                     filesList.String = displayNames;
                 end
 
-
-                index = find(strcmp(savedFiles, videoNames{currentVideoIndex}), 1);
-                if isempty(index)
-                    if isempty(savedFiles)
-                        savedFiles = videoNames{currentVideoIndex};
-                    else
-                        savedFiles = {savedFiles; videoNames{currentVideoIndex}};
+                index = 0;
+                for i = 1 : length(savedFiles)
+                    saveFile = savedFiles{i};
+                    if strcmp(saveFile{1}, videoNames{currentVideoIndex})
+                        index = i;
+                        break;
                     end
+                end
+                if ~index
+                    savedFiles{end + 1} =  {videoNames{currentVideoIndex}};
                 end
 
                 changeDisplay = 0;
@@ -767,14 +778,21 @@ function StepperDLCValidator()
                     displayNames{filesList.Value} = displayNames{filesList.Value}(2 : end);
                     filesList.String = displayNames;
                 end
-
-                index = find(strcmp(savedFiles, videoNames{currentVideoIndex}), 1);
-                if ~isempty(index)
-                    if iscell(savedFiles)
+                
+                index = 0;
+                for i = 1 : length(savedFiles)
+                    saveFile = savedFiles{i};
+                    if strcmp(saveFile{1}, videoNames{currentVideoIndex})
+                        index = i;
+                        break;
+                    end
+                end
+                if ~index
+                    if length(savedFiles) == 1
+                        savedFiles = {};
+                    else
                         savedFiles{index} = savedFiles{end};
                         savedFiles = savedFiles{1 : end - 1};
-                    else
-                        savedFiles = {};
                     end
                 end
             case moveButton
@@ -790,30 +808,19 @@ function StepperDLCValidator()
                     
                     % Move videos to final folder
                     if ~iscell(savedFiles)
-                        moveVideo(savedFiles, FINAL_DATA_FOLDER);
-                    elseif length(savedFiles) > 1
                         for i = 1 : length(savedFiles)
                             moveVideo(savedFiles{i}, FINAL_DATA_FOLDER);
                         end
                     end
-
-                    % Move videos to rejected folder
-                    if ~iscell(markedFiles)
+                    
+                    % TODO
+                    for i = 1 : length(markedFiles)
                         % Add rejected videos to training dataset
-                        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", ["' markedFiles '"], copy_videos=True, extract_frames=True)'];
+                        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", ["' markedFiles{i} '"], copy_videos=True, extract_frames=True)'];
                         pyCommand = strrep(pyCommand, '\', '/');
                         pyrun(pyCommand);
 
-                        moveVideo(markedFiles, REJECTED_DATA_FOLDER);
-                    elseif length(markedFiles) > 1
-                        for i = 1 : length(markedFiles)
-                            % Add rejected videos to training dataset
-                            pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", ["' markedFiles{i} '"], copy_videos=True, extract_frames=True)'];
-                            pyCommand = strrep(pyCommand, '\', '/');
-                            pyrun(pyCommand);
-
-                            moveVideo(markedFiles{i}, REJECTED_DATA_FOLDER);
-                        end
+                        moveVideo(markedFiles{i}, REJECTED_DATA_FOLDER);
                     end
 
                     onClose(c, 0, 1);
@@ -888,26 +895,36 @@ function StepperDLCValidator()
                     displayNames{currentVideoIndex} = ['!!!' displayNames{currentVideoIndex}];
                     filesList.String = displayNames;
                 end
-
-                index = find(strcmp(markedFiles, videoNames{currentVideoIndex}), 1);
-                if isempty(index)
-                    if isempty(markedFiles)
-                        markedFiles = videoNames{currentVideoIndex};
-                    else
-                        markedFiles = {markedFiles; videoNames{currentVideoIndex}};
+                
+                index = 0;
+                for i = 1 : length(markedFiles)
+                    markedFile = markedFiles{i};
+                    if strcmp(markedFile{1}, videoNames{currentVideoIndex})
+                        index = i;
+                        break;
                     end
+                end
+                if ~index
+                    markedFiles{end + 1} = {videoNames{currentVideoIndex}};
                 end
 
                 changeDisplay = 0;
             case unmarkButton
                 
-                index = find(strcmp(markedFiles, videoNames{currentVideoIndex}), 1);
-                if ~isempty(index)
-                    if iscell(markedFiles)
-                        markedFiles{index} = markedFiles{end};
-                        markedFiles = markedFiles{1 : end - 1};
-                    else
+                index = 0;
+                for i = 1 : length(markedFiles)
+                    markedFile = markedFiles{i};
+                    if strcmp(markedFile{1}, videoNames{currentVideoIndex})
+                        index = i;
+                        break;
+                    end
+                end
+                if index
+                    if length(markedFiles) == 1
                         markedFiles = {};
+                    else
+                        markedFiles{index} = markedFiles{end};
+                        markedFiles = markedFiles{1 : end - 1};        
                     end
                 end
 
@@ -1224,14 +1241,17 @@ function StepperDLCValidator()
                 
                 if isfile(procFiles{end}) 
                     displayNames{end} = ['*' displayNames{end}]; % Indicates that a proc file already exists for the video
-
-                    index = find(strcmp(savedFiles, videoFiles{end}), 1);
-                    if isempty(index)
-                        if isempty(savedFiles)
-                            savedFiles = videoFiles{end};
-                        else
-                            savedFiles = {savedFiles; videoFiles{end}};
+                    
+                    index = 0;
+                    for i = 1 : length(savedFiles)
+                        saveFile = savedFiles{i};
+                        if strcmp(saveFile{1}, videoNames{currentVideoIndex})
+                            index = i;
+                            break;
                         end
+                    end
+                    if ~index
+                        savedFiles{end + 1} =  {videoNames{currentVideoIndex}};
                     end
                 end
             end
