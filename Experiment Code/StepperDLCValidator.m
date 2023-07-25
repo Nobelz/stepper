@@ -1011,14 +1011,15 @@ function StepperDLCValidator()
         nextFileButton.Enable = status;
         markButton.Enable = status;
         unmarkButton.Enable = status;
-        
-        if ~isempty(updatedFrames)
-            sendToDLCButton.Enable = status;
-        end
-        
+        moveButton.Enable = status;
+        sendToDLCButton.Enable = status;
         deleteButton.Enable = status;
         saveButton.Enable = status;
         filesList.Enable = status;
+
+        if ~isempty(updatedFrames)
+            sendToDLCButton.Enable = status;
+        end
     end
 
     %% Move Video Function
