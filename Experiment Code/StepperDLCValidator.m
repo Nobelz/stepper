@@ -629,6 +629,8 @@ function StepperDLCValidator()
         fileSwitch('off'); % Disable file switching
 
         changeDisplay = 1;
+        status = 0; % Stores whether the program has exited
+        
         switch b
             case folderDisplay
                 goodDirectory = 0;
@@ -832,7 +834,7 @@ function StepperDLCValidator()
                         moveVideo(markedFiles{i}{1}, REJECTED_DATA_FOLDER);
                     end
 
-                    onClose(c, 0, 1);
+                    status = onClose(c, 0, 1);
                 end 
 
                 changeDisplay = 0;
@@ -993,8 +995,10 @@ function StepperDLCValidator()
         if strcmp(videoTimer.Running, 'off') && changeDisplay
             showFrame();
         end
-
-        fileSwitch('on'); % Enable file switching
+        
+        if ~status
+            fileSwitch('on'); % Enable file switching
+        end
     end
 
     %% File Switching GUI Function
@@ -1642,7 +1646,7 @@ function StepperDLCValidator()
     % The below function is run whenever a user attempts to close the 
     % figure. A confirmation is given, and then the settings are
     % saved for next time.
-    function onClose(~, ~, force)
+    function status = onClose(~, ~, force)
         if nargin < 3
             force = 0;
         end
@@ -1651,6 +1655,7 @@ function StepperDLCValidator()
             uiwait(msgbox({'Videos moved successfully.', 'Quitting in 5 seconds...'}, 'Quitting'), 5);
             drawnow; % Update figure
             closereq; % Close figure
+            status = 1;
             return;
         end
 
@@ -1677,5 +1682,6 @@ function StepperDLCValidator()
         stop(videoTimer); % Stops frame succession if it was running
         drawnow; % Update figure
         closereq; % Close figure
+        status = 0;
     end
 end
