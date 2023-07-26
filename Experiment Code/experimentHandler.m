@@ -34,7 +34,7 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
     DEFAULT_RATE = 50;
     DURATION = 20;
     STRIPED_PATTERN = 1;
-    PATH_TO_FOLDER = '../../Stepper Data/All Data/';
+    PATH_TO_FOLDER = '../../Stepper Data/New Data/';
 
     %% Parse Arguments
     if nargin < 9
