@@ -91,7 +91,7 @@ function expressRun(flyNum)
         
             case 5
                 %% Bimodal Opposing
-                fprintf('Running bimodal coherent conserved trial...\n');
+                fprintf('Running bimodal opposing conserved trial...\n');
                 while experimentHandler(flyNum, 'con', TREATMENT, 1, 'BimodalOpposing', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
                 

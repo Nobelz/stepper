@@ -12,7 +12,7 @@ function StepperDLCValidator()
 
     %% Define Constants
     SHOW_WINGS = 1; % Whether to show wings or not
-    DLC_FOLDER = '../../StepperTether-FoxLab-2023-07-17';
+    DLC_FOLDER = 'D:/DLCNetworks/StepperTether-FoxLab-2023-07-17';
     FINAL_DATA_FOLDER = '../../Stepper Data/Analyzed Data';
     REJECTED_DATA_FOLDER = '../../Stepper Data/Rejected Data';
     BODY_COLOR = [253, 141, 60] ./ 255;
@@ -627,6 +627,15 @@ function StepperDLCValidator()
     % stuff accordingly.
     function onClick(b, e)
         fileSwitch('off'); % Disable file switching
+
+        if b ~= playPauseButton
+            stop(videoTimer);
+            readOnlyPoints.Visible = 'off';
+            for i = showPoints
+                editPoints{i}.Visible = 'on';
+            end
+            playPauseButton.String = '>';
+        end
 
         changeDisplay = 1;
         status = 0; % Stores whether the program has exited

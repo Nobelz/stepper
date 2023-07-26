@@ -11,7 +11,7 @@ function consolidateFolders()
     
     clc;
     %% Define Constants
-    NEW_DATA_DIR = 'D:/New Data';
+    NEW_DATA_DIR = '../../Stepper Data/New Data';
 
     d = dir([NEW_DATA_DIR filesep '*.*']);
 
