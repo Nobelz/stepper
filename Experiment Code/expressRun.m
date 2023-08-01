@@ -97,7 +97,7 @@ function expressRun(flyNum)
                 
                 for i = 1 : 3
                     clc;
-                    fprintf(['Running bimodal coherent trial ' num2str(i) ' of 3...\n']);
+                    fprintf(['Running bimodal opposing trial ' num2str(i) ' of 3...\n']);
                     while experimentHandler(flyNum, i, TREATMENT, 1, 'BimodalOpposing', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                     end
                 end
