@@ -12,7 +12,7 @@ function StepperDLCValidator()
 
     %% Define Constants
     SHOW_WINGS = 1; % Whether to show wings or not
-    DLC_FOLDER = 'D:/DLCNetworks/StepperTether-FoxLab-2023-07-17';
+    DLC_FOLDER = 'D:/DLCNetworks/StepperTether-FoxLab-2023-09-12';
     FINAL_DATA_FOLDER = '../../Stepper Data/Analyzed Data';
     REJECTED_DATA_FOLDER = '../../Stepper Data/Rejected Data';
     BODY_COLOR = [253, 141, 60] ./ 255;
