@@ -829,18 +829,20 @@ function StepperDLCValidator()
                         moveVideo(savedFiles{i}{1}, FINAL_DATA_FOLDER);
                     end
                     
-                    markedFileString = '';
-                    for i = 1 : length(markedFiles)
-                        markedFileString = [markedFileString '"' markedFiles{i}{1} '",'];
-                    end
-                    markedFileString = markedFileString(1 : end - 1); % Get rid of last comma
-                    % Add rejected videos to training dataset
-                    pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", [' markedFileString '], copy_videos=True)'];
-                    pyCommand = strrep(pyCommand, '\', '/');
-                    pyrun(pyCommand);
-
-                    for i = 1 : length(markedFiles)
-                        moveVideo(markedFiles{i}{1}, REJECTED_DATA_FOLDER);
+                    if ~isempty(markedFiles)
+                        markedFileString = '';
+                        for i = 1 : length(markedFiles)
+                            markedFileString = [markedFileString '"' markedFiles{i}{1} '",'];
+                        end
+                        markedFileString = markedFileString(1 : end - 1); % Get rid of last comma
+                        % Add rejected videos to training dataset
+                        pyCommand = ['deeplabcut.add_new_videos("' configFile.folder filesep configFile.name '", [' markedFileString '], copy_videos=True)'];
+                        pyCommand = strrep(pyCommand, '\', '/');
+                        pyrun(pyCommand);
+    
+                        for i = 1 : length(markedFiles)
+                            moveVideo(markedFiles{i}{1}, REJECTED_DATA_FOLDER);
+                        end
                     end
 
                     status = onClose(c, 0, 1);
