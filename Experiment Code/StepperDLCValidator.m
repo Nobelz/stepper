@@ -488,6 +488,25 @@ function StepperDLCValidator()
         zoomAxis.XLim = [frameIndex - 10 frameIndex + 10];
 
         drawnow limitrate; % Update GUI display
+
+        % Check if "outlier"
+        if frameIndex > 1 && frameIndex < numFrames && ...
+            ((abs(headAngles(frameIndex - 1) - headAngles(frameIndex)) > 12 ...
+                && abs(headAngles(frameIndex + 1) - headAngles(frameIndex)) > 12) ...
+                || (abs(bodyAngles(frameIndex - 1) - bodyAngles(frameIndex)) > 12 ...
+                && abs(bodyAngles(frameIndex + 1) - bodyAngles(frameIndex)) > 12)) ...
+                && strcmp(videoTimer.Running, 'on')
+            % If outlier and video timer running, stop at outlier to ensure
+            % that it's correct
+            stop(videoTimer);
+            readOnlyPoints.Visible = 'off';
+            for i = showPoints
+                editPoints{i}.Visible = 'on';
+            end
+            playPauseButton.String = '>';
+
+            showFrame();
+        end
     end
     
     %% Get Body Angles Function
