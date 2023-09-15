@@ -17,7 +17,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 % Outputs:
 %   - data: the actual data of the DAQ during the trial
 %   - time: the time of experiment data collection
-%   - status: whether data was successf
+%   - status: whether data was successful
 %
 % Author: Nobel Zhou (nxz157)
 % Date: 13 July 2023
@@ -226,16 +226,16 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
             fprintf('\tParsing stepper trigger m-sequence...\n');
             stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
             
-            % Coder's note: the sequence starts with 96, as we initially
-            % set the position to be 1, and we need a change to occur to
-            % trigger the stepper. - nxz157, 7/3/2023
-
-            % stepperMSeq = funcS / gain * 45;
+            % % Coder's note: the sequence starts with 96, as we initially
+            % % set the position to be 1, and we need a change to occur to
+            % % trigger the stepper. - nxz157, 7/3/2023
             % 
-            % % Coder's note: we set the magnitude to 45 so we get values of 
-            % % 3, 48, and 93. Using these values, we can ensure that the 
-            % % stepper can detect the voltage resolution and step left and 
-            % % right, accordingly. - nxz157, 6/30/2023
+            % % stepperMSeq = funcS / gain * 45;
+            % % 
+            % % % Coder's note: we set the magnitude to 45 so we get values of 
+            % % % 3, 48, and 93. Using these values, we can ensure that the 
+            % % % stepper can detect the voltage resolution and step left and 
+            % % % right, accordingly. - nxz157, 6/30/2023
 
             % Coder's note: the above is now obsolete, due to the fact that
             % we are storing the stepper sequence on the stepper itself,
@@ -306,12 +306,16 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
         drawnow;
     end
 
-    % Coder's note: previously, we have used an IsDone to check to see if
-    % the DAQ is done. This was removed in the new DAQ interface, and any
-    % other calls like drawnow or what-not cause an async error. Thus, we
-    % cannot use a listener to call a function. The quick solution to this
-    % is simply to wait until we are sure the DAQ is finished, and then
-    % collect all the data at once. - nxz157, 6/19/2023
+    % % Coder's note: previously, we have used an IsDone to check to see if
+    % % the DAQ is done. This was removed in the new DAQ interface, and any
+    % % other calls like drawnow or what-not cause an async error. Thus, we
+    % % cannot use a listener to call a function. The quick solution to this
+    % % is simply to wait until we are sure the DAQ is finished, and then
+    % % collect all the data at once. - nxz157, 6/19/2023
+
+    % Coder's note: the author of the above note does not know what he is
+    % talking about. A simple while d.Running loop works and the above
+    % author is stupid for suggesting otherwise. - nxz157, 9/15/2023
 
     fprintf('\tData collection received.\nReading data..');
     data = read(d, 'all'); % Reads all input data
