@@ -9,12 +9,18 @@
 % - v0.1 (9/15/2023): Initial commit
 
 %% Define Constants
-RESET_FILE_LIST = 0; % 1 to pull videos from the directory again (do this if videos have been added)
+RESET_FLIES = 0; % 1 to pull videos from the directory again (do this if videos have been added)
 DATA_DIR = '../../Stepper Data/Analyzed Data';
 
 %% Find Files
-fileList = dir('./fileList.mat');
+checkFlies = dir('./flies.mat');
 
-if isempty(fileList) || RESET_FILE_LIST
-    fileList = assembleFileList(DATA_DIR, 1); % Pull videos if not found
+if isempty(checkFlies) || RESET_FLIES
+    fileList = assembleFileList(DATA_DIR); % Pull videos if not found
+    flies = assembleFlyDirectory(fileList, 1); % Create fly structs
+else
+    load('./flies.mat');
 end
+
+% Apply high-pass filter
+
