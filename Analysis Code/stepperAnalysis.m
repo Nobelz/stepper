@@ -8,8 +8,11 @@
 % VERSION CHANGELOG:
 % - v0.1 (9/15/2023): Initial commit
 
+clc;
+close all;
+
 %% Define Constants
-RESET_FLIES = 0; % 1 to pull videos from the directory again (do this if videos have been added)
+RESET_FLIES = 1; % 1 to pull videos from the directory again (do this if videos have been added)
 DATA_DIR = '../../Stepper Data/Analyzed Data';
 
 %% Find Files
@@ -22,5 +25,19 @@ else
     load('./flies.mat');
 end
 
-% Apply high-pass filter
+%% Condition-Dependent Analysis
+kernels = struct(); % Create struct storing all kernels
+j = 0; % Stores the index of kernel array (may not be the same as i due to linearity trials)
 
+for i = 1 : length(flies)
+    j = j + 1; % Increment kernel array index
+    temp = struct(); % Create temporary struct to store kernel data for one trial
+
+    temp.flyNum = flies(i).flyNum;
+    temp.condition = flies(i).condition;
+    
+    switch (flies(i).condition)
+        case {'StepperOnlyAllOn', 'StepperOnlyStripes'} % Stepper-only trials
+            kernelStepperOnly(flies(i));
+    end
+end

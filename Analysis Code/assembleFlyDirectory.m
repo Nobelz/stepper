@@ -14,8 +14,10 @@ function flies = assembleFlyDirectory(fileList, saveResults)
 % - v0.1 (9/29/2023): Initial commit
 
     flies = struct(); % Create struct storing flies
-    
+    fprintf('Loading files...\n');
+
     for i = 1 : length(fileList)
+        fprintf(['\tLoading file ' num2str(i) ' of ' num2str(length(fileList)) '...']);
         % Load files
         load([fileList(i).expFile.folder filesep fileList(i).expFile.name]);
         load([fileList(i).procFile.folder filesep fileList(i).procFile.name]);
@@ -71,11 +73,18 @@ function flies = assembleFlyDirectory(fileList, saveResults)
         temp.bodyAngles = fly.proc.BodyAng;
         
         flies.flies(i) = temp;
+        fprintf('done\n');
     end
 
+    fprintf('Done loading files.\n');
     flies = flies.flies;
 
     if saveResults
-        save('flies', 'flies'); % Save file list results
+        fprintf('Saving fly information (this may take a long time)...');
+        save('flies', 'flies', '-v7.3'); % Save file list results
+        fprintf('done\n');
+        % Coder's note: apparently the file generated is way too large and
+        % more than 2GB. Consistent to MATLAB directions, MAT 7.3 is
+        % required. - nxz157, 10/2/2023
     end
 end
