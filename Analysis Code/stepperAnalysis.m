@@ -35,9 +35,26 @@ for i = 1 : length(flies)
 
     temp.flyNum = flies(i).flyNum;
     temp.condition = flies(i).condition;
+    temp.flyTrial = flies(i).flyTrial;
     
     switch (flies(i).condition)
         case {'StepperOnlyAllOn', 'StepperOnlyStripes'} % Stepper-only trials
-            kernelStepperOnly(flies(i));
+            temp.kernel = kernelStepperOnly(flies(i));
+            kernels.kernels(j) = temp;
+        otherwise
+            j = j - 1;
+    end
+end
+
+kernels = kernels.kernels;
+
+%% Final Analysis
+allOnKernel = zeros(1, 3060);
+stripesKernel = zeros(1, 3060);
+for i = 1 : length(kernels)
+    if strcmp(kernels(i).condition, 'StepperOnlyAllOn')
+        allOnKernel = allOnKernel + kernels(i).kernel;
+    else
+        stripesKernel = stripesKernel + kernels(i).kernel;
     end
 end

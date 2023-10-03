@@ -1,4 +1,4 @@
-%function kernel = kernelStepperOnly(data)
+function kernel = kernelStepperOnly(data)
 
 % kernelStepperOnly.m
 % Returns the kernel for the stepper only trials.
@@ -20,6 +20,7 @@
     rateS = 50;
     DAQ_RATE = 10000;
     PREPEND_STEPS = 30;
+    SEQ_LENGTH = 255; % Whatever the length of the m-sequence is (255 * 3 for me)
     
     %% Find Camera and Stepper Firing
     % Find camera firing
@@ -64,17 +65,36 @@
     % Make array of upsampled m-sequence
     cameraMSeq = zeros(1, length(data.bodyAngles));
 
+    % if length(stepperTriggers) < seqLength + 1;
+    %     disp([num2str(data.flyNum) ', ' data.condition ', ' num2str(data.flyTrial)]);
+    %     finalKernel = [];
+    %     return;
+    % end
+
+    % Coder's note: the above was removed because some trials weren't up to
+    % par. Again, these did not have an arena channel. - nxz157, 10/3/2023
+
     % Loop for each step of m-sequence
-    for i = 1 : seqLength
+    for i = 1 : seqLength + 1 % We get one more than the sequence length so we know when the m-sequence actually ends
         [~, frameIndex] = min(abs(cameraIndices - stepperTriggers(i))); % Find the camera index closest to the stepper step
-        cameraMSeq(frameIndex) = mSeq(i); % Store value of m-sequence at that closest camera index
+        if i == seqLength + 1
+            cameraMSeq(frameIndex) = 100; % Store temp value to indicate end of m-sequence
+        else
+            cameraMSeq(frameIndex) = mSeq(i); % Store value of m-sequence at that closest camera index
+        end
     end
 
-    %% Formulate Final Camera M-Sequence
-    cameraMSeq = [zeros((FPS / rateS) * PREPEND_STEPS + 600, 1); cameraMSeq'];
-    cameraMSeq = cameraMSeq';
-    cameraMSeq = cameraMSeq(1 : length(data.bodyAngles));
-
+    %% Formulate Final Camera M-Sequence and Head Angles
+    firstIndex = find(cameraMSeq ~= 0, 1, 'first'); % Find first index of change
+    lastIndex = find(cameraMSeq ~= 0, 1, 'last'); % Find last index of change
+    cameraMSeq = cameraMSeq(firstIndex : lastIndex); % Find interval of interest
+    cameraMSeq = cameraMSeq(1 : end - 1); % Get rid of final trigger
+    
+    % Determine relative head angles
+    relHeadAngles = data.headAngles - data.bodyAngles;
+    
+    startPoint = (FPS / rateS) * PREPEND_STEPS + 600;
+    
     % Coder's note: the above does something complicated but remember that
     % we prepended 30 zeros since the DAQ was firing too slow. With each
     % step being approximately 12 camera frames (FPS = 600 / stepper rate =
@@ -82,6 +102,48 @@
     % frames were taken before the trigger. Then we need to trim to the
     % correct length for m-sequence analysis. - nxz157, 10/2/2023
     
-    %% Determine Head Angles
+    angles = relHeadAngles(startPoint + 1 : startPoint + length(cameraMSeq));
     
-%end
+    lastIndex = find(cameraMSeq ~= 0, 1, 'last'); % Find last index again
+    
+    % Transpose m-sequence vector
+    cameraMSeq = cameraMSeq';
+   
+    % Add first elements to end to complete circle
+    angles = [angles; angles(1 : SEQ_LENGTH * FPS / rateS - (length(cameraMSeq) - lastIndex + 1))];
+    cameraMSeq = [cameraMSeq; cameraMSeq(1 : SEQ_LENGTH * FPS / rateS - (length(cameraMSeq) - lastIndex + 1))];
+
+    % Coder's note: the above does something kinda complex but it's
+    % actually pretty simple. For the sliding window, it's a circular
+    % correlation so at the end of the m-sequence, I need to wrap around to
+    % the front. Now I could do a modulo operator or something funky like
+    % that but I chose to just append the beginning of the sequence at the
+    % end so I don't have to do that weird math. All of what this does is
+    % that it amkes sure that there is just enough elements at the end to
+    % accomplish this circular cross-correlation. - nxz157, 10/2/2023
+
+    %% Generate Kernel
+    kernelLength = SEQ_LENGTH * FPS / rateS; % Kernel length is whatever the sequence length is times the number of frames for each step
+    sumKernel = zeros(1, length(kernelLength));
+    kernelCount = 0;
+
+    % Sliding window loop
+    for j = 1 : length(angles) - kernelLength + 1
+        newHead = angles(j : j + kernelLength - 1);
+        newSeq = cameraMSeq(j : j + kernelLength - 1);
+        
+        kernel = fcxcorr(newHead, newSeq) ./ sqrt(norm(newHead) * norm(newSeq)); % Conserved kernel calculation from previous research
+        kernel = kernel - kernel(1);
+        
+        % Check if kernel is valid (a kernel will be invalid if all of the
+        % m sequence is 0 for that particular interval
+        if ~isnan(kernel)
+            sumKernel = sumKernel + kernel;
+            kernelCount = kernelCount + 1; 
+        end
+    end
+    finalKernel = sumKernel / kernelCount;
+    
+    % plot(finalKernel);
+    % pause;
+end
