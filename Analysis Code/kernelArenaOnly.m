@@ -1,7 +1,7 @@
-function kernel = kernelStepperOnly(data)
+function kernel = kernelArenaOnly(data)
 
-% kernelStepperOnly.m
-% Returns the kernel for the stepper only trials.
+% kernelArenaOnly.m
+% Returns the kernel for the arena only trials.
 % Warning: this is only implemented for 50Hz, as I was too lazy to make it
 % compatible for 25Hz. 
 %
@@ -9,12 +9,11 @@ function kernel = kernelStepperOnly(data)
 %   - data: the formatted trial data
 %
 % Author: Nobel Zhou
-% Date: 2 October 2023
+% Date: 3 October 2023
 % Version: 
 %
 % VERSION CHANGELOG:
-% - v0.1 (10/2/2023): Initial commit
-% - v1.0 (10/3/2023): Finished kernel calculations
+% - v0.1 (10/3/2023): Initial commit
    
     %% Constants
     FPS = 600; 
