@@ -20,7 +20,7 @@ function indices = findCameraIndices(data)
     % square wave
     for i = 1 : length(indices)
         j = indices(i);
-        while  j > 0 && data(j) > 3 % Keep going until you don't get to the square wave
+        while j > 0 && data(j) > 3 % Keep going until you don't get to the square wave
             j = j - 1;
         end
         j = j + 1;

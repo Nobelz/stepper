@@ -12,7 +12,7 @@ clc;
 close all;
 
 %% Define Constants
-RESET_FLIES = 1; % 1 to pull videos from the directory again (do this if videos have been added)
+RESET_FLIES = 0; % 1 to pull videos from the directory again (do this if videos have been added)
 DATA_DIR = '../../Stepper Data/Analyzed Data';
 
 %% Find Files
@@ -54,25 +54,31 @@ kernels = kernels.kernels;
 %% Final Analysis
 allOnKernel = zeros(1, 3060);
 stripesKernel = zeros(1, 3060);
+arenaKernel = zeros(1, 3060);
 
 countAllOn = 0;
 countStripes = 0;
+countArena = 0;
 for i = 1 : length(kernels)
     if strcmp(kernels(i).condition, 'StepperOnlyAllOn')
         allOnKernel = allOnKernel + kernels(i).kernel;
         countAllOn = countAllOn + 1;
-    else
+    elseif strcmp(kernels(i).condition, 'StepperOnlyStripes')
         stripesKernel = stripesKernel + kernels(i).kernel;
         countStripes = countStripes + 1;
+    else
+        arenaKernel = arenaKernel + kernels(i).kernel;
+        countArena = countArena + 1;
     end
 end
 
 allOnKernel = allOnKernel / countAllOn;
 stripesKernel = stripesKernel / countStripes;
+arenaKernel = arenaKernel / countArena;
 
 %% Plot Final Kernels
 figure;
-subplot(2, 1, 1);
+subplot(3, 1, 1);
 plot(linspace(0, 1, 601), allOnKernel(1 : 601));
 title('Stepper All On Kernel');
 xlabel('Time (s)');
@@ -80,9 +86,17 @@ ylabel('Gain (Degrees)');
 xlim([0 1]);
 ylim([0 3]);
 
-subplot(2, 1, 2);
+subplot(3, 1, 2);
 plot(linspace(0, 1, 601), stripesKernel(1 : 601));
 title('Stepper Stripes Kernel');
+xlabel('Time (s)');
+ylabel('Gain (Degrees)');
+xlim([0 1]);
+ylim([0 3]);
+
+subplot(3, 1, 3);
+plot(linspace(0, 1, 601), arenaKernel(1 : 601));
+title('Arena Kernel');
 xlabel('Time (s)');
 ylabel('Gain (Degrees)');
 xlim([0 1]);

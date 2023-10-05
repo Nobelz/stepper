@@ -1,5 +1,4 @@
-function kernel = kernelStepperOnly(data)
-
+function finalKernel = kernelStepperOnly(data)
 % kernelStepperOnly.m
 % Returns the kernel for the stepper only trials.
 % Warning: this is only implemented for 50Hz, as I was too lazy to make it
