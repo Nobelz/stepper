@@ -54,11 +54,20 @@ kernels = kernels.kernels;
 %% Final Analysis
 allOnKernel = zeros(1, 3060);
 stripesKernel = zeros(1, 3060);
-arenaKernel = zeros(1, 3060);
+
+minLength = 3060;
+for i = 1 : length(kernels)
+    if strcmp(kernels(i).condition, 'ArenaOnly')
+        minLength = min(minLength, length(kernels(i).kernel));
+    end
+end
+arenaKernel = zeros(1, minLength);
+
 
 countAllOn = 0;
 countStripes = 0;
 countArena = 0;
+
 for i = 1 : length(kernels)
     if strcmp(kernels(i).condition, 'StepperOnlyAllOn')
         allOnKernel = allOnKernel + kernels(i).kernel;
@@ -67,7 +76,7 @@ for i = 1 : length(kernels)
         stripesKernel = stripesKernel + kernels(i).kernel;
         countStripes = countStripes + 1;
     else
-        arenaKernel = arenaKernel + kernels(i).kernel;
+        arenaKernel = arenaKernel + kernels(i).kernel(1 : minLength);
         countArena = countArena + 1;
     end
 end

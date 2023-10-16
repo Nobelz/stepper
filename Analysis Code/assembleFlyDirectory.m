@@ -12,6 +12,7 @@ function flies = assembleFlyDirectory(fileList, saveResults)
 %
 % VERSION CHANGELOG:
 % - v0.1 (9/29/2023): Initial commit
+% - v1.0 (10/16/2023): Added pm files
 
     flies = struct(); % Create struct storing flies
     fprintf('Loading files...\n');
@@ -23,6 +24,14 @@ function flies = assembleFlyDirectory(fileList, saveResults)
         load([fileList(i).procFile.folder filesep fileList(i).procFile.name]);
     
         temp = struct(); % Make temporary struct to store fly information
+        temp.expFile = fileList(i).expFile;
+        temp.procFile = fileList(i).procFile;
+    
+        % Find pm file
+        expString = extractBefore(temp.expFile.name, '.mat');
+        pmFile = dir([temp.expFile.folder filesep expString '*.pm']);
+        temp.pmFile = pmFile;
+
         temp.flyNum = exp.flyNum;
         temp.condition = exp.condition;
     
