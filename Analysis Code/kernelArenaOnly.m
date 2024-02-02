@@ -76,9 +76,9 @@ function finalKernel = kernelArenaOnly(data)
     end
 
     [~, bestIndex] = max(strengths); % Determine index of best cross-correlation
-    mSeq = diff(timescales(bestIndex).t); % Change to m-sequence impulses
-    
-    mSeq = [zeros(1, shifts(bestIndex)) mSeq]; % Add 1 zero to account for diff taking one data point off and add the shift
+    % mSeq = diff(timescales(bestIndex).t); % Change to m-sequence impulses
+    % 
+    % mSeq = [zeros(1, shifts(bestIndex)) mSeq]; % Add 1 zero to account for diff taking one data point off and add the shift
     
     rateV = DAQ_RATE / arenaRate(bestIndex); % Experimentally determined arena rate
     cameraRate = FPS / rateV;
@@ -170,10 +170,11 @@ function finalKernel = kernelArenaOnly(data)
     end
     finalKernel = sumKernel / kernelCount;
      
-    figure;
-    disp(data.expFile.name);
-    plot(finalKernel);
-    drawnow;
+    finalKernel = finalKernel';
+    % figure;
+    % disp(data.expFile.name);
+    % plot(finalKernel);
+    % drawnow;
 end
 
 %PCF103T1ArenaOnly.mat

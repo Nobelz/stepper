@@ -8,7 +8,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 %       empty array of 0's. 
 %   - funcS: the stepper pattern, limit 1000; in the event that no visual 
 %       function is needed, provide an empty array of 0's.
-%   - pattern: the arena pattern, usually 'all_on' or 1
+%   - pattern: the arena pattern, usually 1 (stripes) or 2 (all on)
 %   - duration: the length of the experiment
 %   - rate: the rate of the stepper, if using stepper only. The default is
 %       50Hz
@@ -111,8 +111,8 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     fprintf('.');
 
     % Add trigger connection from arena controller
-    trigger = addtrigger(d, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
-    trigger.Condition = 'RisingEdge';
+%     trigger = addtrigger(d, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
+%     trigger.Condition = 'RisingEdge';
     fprintf('.done\n');
 
     %% Setup LED Arena
@@ -157,133 +157,132 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     % after 10 seconds, it throws an error. - nxz157, 7/3/2023
 
     fprintf('\tLoading pattern...\n');
-    if strcmp('AllOn', pattern)
-        Panel_com('all_on');
+%     if strcmp('AllOn', pattern)
+%         Panel_com('all_on');
+% 
+%         fprintf('\tSetting mode to blank mode...\n');
+%         Panel_com('set_mode', [0 0]);
+%     else
+%     end
 
-        fprintf('\tSetting mode to blank mode...\n');
-        Panel_com('set_mode', [0 0]);
-    else
-        Panel_com('set_pattern_id', pattern); % Load pattern onto arena
-
-        Panel_com('ident_compress_off'); 
+    % Coder's note: the above was used to distinguish between all-on and
+    % stripes. Now, we are simply using an all-on pattern (ID 2), so the
+    % above is no longer necessary. - nxz157, 1/26/2024
     
-        % Coder's note: I do not know what the above command does, but it was
-        % carried over from the previous stepper rig control. If it aint broke,
-        % don't fix it - nxz157, 6/19/2023
+    Panel_com('set_pattern_id', pattern); % Load pattern onto arena
+    Panel_com('ident_compress_off');
 
-        if ~rigUse(1)
-            fprintf('No function provided for LED Arena.\n')
-        else
-            fprintf('\tSetting mode to function mode.');
-            Panel_com('set_mode', [4 4]);
-            fprintf('.');
-            Panel_com('send_gain_bias', [0 0 0 0]);
-            fprintf('.done\n');
+    % Coder's note: I do not know what the above command does, but it was
+    % carried over from the previous stepper rig control. If it aint broke,
+    % don't fix it - nxz157, 6/19/2023
 
-            fprintf('\tParsing arena m-sequence...\n');
-            arenaMSeq = cumsum(funcV);
+    fprintf('\tSetting mode to function mode.');
+    Panel_com('set_mode', [4 4]);
+    fprintf('.');
+    Panel_com('send_gain_bias', [0 0 0 0]);
+    fprintf('.done\n');
 
-            fprintf('\tSending arena function.')
+    fprintf('\tParsing arena m-sequence...\n');
+    arenaMSeq = cumsum(funcV);
 
-            for i = 0 : 19
-                j = 1 + i * 50;
-                k = j + 49;
+    fprintf('\tSending arena function.')
 
-                Panel_com('send_function', [2 i arenaMSeq(j : k)]); % 2 for Y
-                fprintf('.');
-                pause(0.1);
-            end
-            fprintf('.done\n');
-        end
-    
-        fprintf('\tSetting initial position...\n');
-        Panel_com('set_position', [5 48]); % Write first position
+    for i = 0 : 19
+        j = 1 + i * 50;
+        k = j + 49;
+
+        Panel_com('send_function', [2 i arenaMSeq(j : k)]); % 2 for Y
+        fprintf('.');
+        pause(0.1);
     end
+    fprintf('.done\n');
+
+    fprintf('\tSetting initial position...\n');
+    Panel_com('set_position', [1 48]); % Write first position
+
     fprintf('Done setting up LED Arena.\n');
-    
-    
+
     %% Setup Stepper
     fprintf('Setting up Stepper...\n');
-    
-    if ~rigUse(2)
-        fprintf('No function provided for Stepper.\n')
+
+    fprintf('\tEstablishing serial connection to stepper');
+
+    % Make serial port
+    stepper = serialport(STEPPER_PORT, 9600);
+    fprintf('.');
+    stepper.OutputBufferSize = 1024;
+    fprintf('.');
+    Stepper_com(stepper, 'reset');
+    fprintf('.done\n');
+
+    fprintf('\tSetting stepper gain...\n');
+    gain = max(abs(funcS)); % The max should be 1, 2, etc., which specifies the gain
+    Stepper_com(stepper, 'set_sequence_gain', gain);
+
+    %         if rigUse(1) % Only 25Hz and 50Hz available with arena
+    fprintf('\tParsing stepper trigger m-sequence...\n');
+    stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
+
+    % % Coder's note: the sequence starts with 96, as we initially
+    % % set the position to be 1, and we need a change to occur to
+    % % trigger the stepper. - nxz157, 7/3/2023
+    %
+    % % stepperMSeq = funcS / gain * 45;
+    % %
+    % % % Coder's note: we set the magnitude to 45 so we get values of
+    % % % 3, 48, and 93. Using these values, we can ensure that the
+    % % % stepper can detect the voltage resolution and step left and
+    % % % right, accordingly. - nxz157, 6/30/2023
+
+    % Coder's note: the above is now obsolete, due to the fact that
+    % we are storing the stepper sequence on the stepper itself,
+    % and the arena X function is simply just triggering the
+    % stepper for each step. - nxz157, 7/3/2023
+
+    fprintf('\tSending sequence length...\n');
+    if rigUse(2)
+        finalIndex = find(abs(funcS) > 0, 1, 'last') + 1;
     else
-        fprintf('\tEstablishing serial connection to stepper');
-
-        % Make serial port
-        stepper = serialport(STEPPER_PORT, 9600);
-        fprintf('.');
-        stepper.OutputBufferSize = 1024;
-        fprintf('.');
-        Stepper_com(stepper, 'reset');
-        fprintf('.done\n');
-        
-        fprintf('\tSetting stepper gain...\n');
-        gain = max(abs(funcS)); % The max should be 1, 2, etc., which specifies the gain
-        Stepper_com(stepper, 'set_sequence_gain', gain);
-
-        if rigUse(1) % Only 25Hz and 50Hz available with arena
-            fprintf('\tParsing stepper trigger m-sequence...\n');
-            stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
-            
-            % % Coder's note: the sequence starts with 96, as we initially
-            % % set the position to be 1, and we need a change to occur to
-            % % trigger the stepper. - nxz157, 7/3/2023
-            % 
-            % % stepperMSeq = funcS / gain * 45;
-            % % 
-            % % % Coder's note: we set the magnitude to 45 so we get values of 
-            % % % 3, 48, and 93. Using these values, we can ensure that the 
-            % % % stepper can detect the voltage resolution and step left and 
-            % % % right, accordingly. - nxz157, 6/30/2023
-
-            % Coder's note: the above is now obsolete, due to the fact that
-            % we are storing the stepper sequence on the stepper itself,
-            % and the arena X function is simply just triggering the
-            % stepper for each step. - nxz157, 7/3/2023
-            
-            fprintf('\tSending sequence length...\n');
-            finalIndex = find(abs(funcS) > 0, 1, 'last') + 1;
-            Stepper_com(stepper, 'send_sequence_length', finalIndex);
-
-            fprintf('\tSending stepper trigger function.')
-            for i = 0 : 19
-                j = 1 + i * 50;
-                k = j + 49;
-        
-                Panel_com('send_function', [1 i stepperMSeq(j : k)]); % 1 for X
-                fprintf('.');
-                pause(0.1);
-            end
-            fprintf('.done\n');
-            
-            fprintf('\tSending stepper function...\n');
-            Stepper_com(stepper, 'send_arena_sequence', funcS);
-
-            pause(1);
-        else
-            fprintf('\tSetting arena mode...\n');
-            Panel_com('set_mode', [5 5]);
-
-            % Coder's note: the above is necessary as otherwise, the arena
-            % will replay the last stored sequence. We want the sequence to
-            % do something, so if we have it go to a debug mode, that would
-            % suffice. - nxz157, 7/13/2023
-            
-            fprintf('\tSetting trigger mode...\n')
-            Stepper_com(stepper, 'set_trig_mode', 'start_on_trig');
-
-            fprintf('\tSetting sequence rate...\n')
-            Stepper_com(stepper, 'set_sequence_rate', rate);
-            
-            fprintf('\tSending stepper function...\n');
-            Stepper_com(stepper, 'send_sequence', funcS);
-
-            Panel_com('set_trigger_rate', 1);
-        end
-
-        fprintf('Done setting up Stepper.\n');
+        finalIndex = 1000;
     end
+    Stepper_com(stepper, 'send_sequence_length', finalIndex);
+
+    fprintf('\tSending stepper trigger function.')
+    for i = 0 : 19
+        j = 1 + i * 50;
+        k = j + 49;
+
+        Panel_com('send_function', [1 i stepperMSeq(j : k)]); % 1 for X
+        fprintf('.');
+        pause(0.1);
+    end
+    fprintf('.done\n');
+
+    fprintf('\tSending stepper function...\n');
+    Stepper_com(stepper, 'send_arena_sequence', funcS);
+
+    pause(1);
+
+    %             fprintf('\tSetting arena mode...\n');
+    %             Panel_com('set_mode', [5 5]);
+    %
+    %             % Coder's note: the above is necessary as otherwise, the arena
+    %             % will replay the last stored sequence. We want the sequence to
+    %             % do something, so if we have it go to a debug mode, that would
+    %             % suffice. - nxz157, 7/13/2023
+    %
+    %             fprintf('\tSetting trigger mode...\n')
+    %             Stepper_com(stepper, 'set_trig_mode', 'start_on_trig');
+    %
+    %             fprintf('\tSetting sequence rate...\n')
+    %             Stepper_com(stepper, 'set_sequence_rate', rate);
+    %
+    %             fprintf('\tSending stepper function...\n');
+    %             Stepper_com(stepper, 'send_sequence', funcS);
+    %
+    %             Panel_com('set_trigger_rate', 1);
+
+    fprintf('Done setting up Stepper.\n');
     
     %% Final Preparations
     fprintf('Performing final preparations...\n');
@@ -294,7 +293,13 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     
     fprintf('Starting execution...\n');
     fprintf('\tStarting DAQ operation...\n');
-    start(d, 'Duration', seconds(duration)); % Start DAQ collection/writing and wait for trigger
+    start(d, 'Duration', seconds(duration + 2)); % Start DAQ collection/writing and wait for trigger
+    pause(2);
+
+    % Coder's note: I added a 2 second pause because the DAQ doesn't seem
+    % to start very quickly and it was cutting off some data. - nxz157,
+    % 1/26/2024
+
     fprintf('\tWaiting for trigger...\n');
     Panel_com('start_w_trig'); % Send trigger to camera and DAQ
 
@@ -330,28 +335,22 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     % again and go through their m-sequence. This is normal and irrelevant,
     % as data has already been done collecting when this happens. - nxz157,
     % 6/30/2023
-
-    if rigUse(2)
-        fprintf('\tResetting Stepper...\n');
-        Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
-    end
+    fprintf('\tResetting Stepper...\n');
+    Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
 
     fprintf('\tClearing DAQ...\n');
     clear d % Delete DAQ
 
     %% Verification of Synchronization
     fprintf('Verifying data...\n');
-    if ~rigUse(1) || ~rigUse(2)
-        fprintf('\tData verification skipped due to synchronization.\n');
-        startBtn = 'Yes';
-        endBtn = 'Yes';
-    else
-        fprintf('\tVerifying start times...\n');
+
+    if ~strcmp(condition, 'ArenaOnly')
+           
         stepper = data.('Dev1_ai6');
         arena = data.('Dev1_ai4');
         timeStepper = find(stepper > 3, 1); % Find first location of stepper start
         timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
-
+    
         if abs(timeStepper - timeArena) >= 10
             f = figure;
             hold on;
@@ -360,22 +359,22 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
             title('Start Verification');
             ylim([0 5]);
             xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
-
+    
             startBtn = questdlg('There are concerns with synchronization between the arena and stepper start times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
             close(f);
         else
             startBtn = 'Yes';
         end
-        
+    
         fprintf('\tVerifying end times...\n');
         stopSignal = data.('Dev1_ai14');
         timeStop = find(diff(stopSignal) < -3, 1) + 10;
-        
+    
         arenaMod = arena(1 : timeStop); % Truncate end arena changes off
-
+    
         timeStepper = find(abs(diff(stepper)) > 3, 1, 'last') + 1; % Find last location of stepper change
         timeArena = find(abs(diff(arenaMod)) > 0.03, 1, 'last') + 1; % last first location of arena change
-
+    
         if abs(timeStepper - timeArena) >= 10 || strcmp(startBtn, 'Yes')
             f = figure;
             hold on;
@@ -384,14 +383,35 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
             title('End Verification');
             ylim([0 5]);
             xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
-
+    
             endBtn = questdlg('There are concerns with synchronization between the arena and stepper end times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'End Synchronization Good?', 'Yes', 'No', 'No');
             close(f);
         else
             endBtn = 'Yes';
         end
-    end
+    else
+        stepperStart = data.('Dev1_ai14');
+        arena = data.('Dev1_ai4');
+        timeStepper = find(stepperStart > 3, 1); % Find first location of stepper start
+        timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
     
+        if abs(timeStepper - timeArena) >= 10
+            f = figure;
+            hold on;
+            plot(arena);
+            plot(stepperStart);
+            title('Start Verification');
+            ylim([0 5]);
+            xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+    
+            startBtn = questdlg('There are concerns with synchronization between the arena and stepper start times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
+            close(f);
+        else
+            startBtn = 'Yes';
+        end
+        endBtn = 'Yes';
+    end
+
     fprintf('\tVerifying fly flight...\n');
 
     if strcmp(startBtn, 'Yes') && strcmp(endBtn, 'Yes')

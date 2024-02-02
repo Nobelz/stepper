@@ -34,6 +34,8 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
     DEFAULT_RATE = 50;
     DURATION = 20;
     STRIPED_PATTERN = 1;
+    ALLON_PATTERN = 2;
+    STRIPED_PATTERN_STATIONARY = 3;
     PATH_TO_FOLDER = '../../Stepper Data/New Data/';
 
     %% Parse Arguments
@@ -44,18 +46,10 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
     if nargin < 8
         arenaRate = DEFAULT_RATE; % Default to default rate if no rate provided
     end
-    
-    if strncmpi(condition, 'Stepper', 7)
-        arenaRate = 0;
-    elseif strncmpi(condition, 'Arena', 5)
-        stepperRate = 0; 
-
+        
+    if ~strcmp(condition, 'TestLinearity')
         if arenaRate ~= 25 && arenaRate ~= 50
-            error('Arena rate must be 25Hz or 50Hz for arena trials.');
-        end
-    elseif strncmpi(condition, 'Bimodal', 7)
-        if arenaRate ~= 25 && arenaRate ~= 50
-            error('Arena rate must be 25Hz or 50Hz for bimodal trials.');
+            error('Arena rate must be 25Hz or 50Hz.');
         end    
 
         if arenaRate ~= stepperRate
@@ -65,8 +59,6 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
 
         delayed = 0;
         doubled = 0;
-    elseif ~strcmp(condition, 'TestLinearity')
-        error('Incorrect condition provided.');
     end
 
     if nargin < 7
@@ -164,10 +156,13 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
                 funcS = [zeros(1, 200) funcS(1 : end - 200)];
             end
             
-            % Set arena m-sequences to all zeros so no movement in arena
-            funcV = zeros(1, 1000);
+            funcV = funcS;
+            % Coder's note: I have added a visual m-sequence here not to
+            % actually provide visual input, but so I have the feedback ons
+            % the DAQ. Using a stationary stripes pattern will ensure no
+            % actual perceived change to the fly. - nxz157, 1/29/2024
             
-            pattern = STRIPED_PATTERN; % Load stripes pattern
+            pattern = STRIPED_PATTERN_STATIONARY; % Load stationary stripes pattern
         case 'StepperOnlyAllOn'
            if conserved
                 funcS = seq1;
@@ -182,11 +177,10 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
             if delayed == 1
                 funcS = [zeros(1, 200) funcS(1 : end - 200)];
             end
-
-            % Set arena m-sequences to all zeros so no movement in arena
-            funcV = zeros(1, 1000);
             
-            pattern = 'AllOn'; % Load all on pattern
+            funcV = funcS;
+            
+            pattern = ALLON_PATTERN; % Load all on pattern
         case 'BimodalRandom'
             if conserved
                 funcV = seq1;
