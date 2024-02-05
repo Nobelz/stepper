@@ -20,17 +20,17 @@ function expressRun(flyNum)
     
     expOrder = randperm(6); % Randomize experiment treatment
 
-    %% Test Linearity
-    fprintf('Testing linearity...\n');
-    uiwait(msgbox({'Please make sure camera is set to 7.000GB storage,', ...
-        'then click ok to continue', ...
-        '(Required buffer length 40 seconds)'}));
-
-    while experimentHandler(flyNum, 1, TREATMENT, 1, 'TestLinearity')
-    end
-    
-    uiwait(msgbox({'Please make sure camera is set to 3.750GB storage, then click ok to continue', ...
-        '(Required buffer length 20 seconds)'}));
+%     %% Test Linearity
+%     fprintf('Testing linearity...\n');
+%     uiwait(msgbox({'Please make sure camera is set to 7.000GB storage,', ...
+%         'then click ok to continue', ...
+%         '(Required buffer length 40 seconds)'}));
+% 
+%     while experimentHandler(flyNum, 1, TREATMENT, 1, 'TestLinearity')
+%     end
+%     
+%     uiwait(msgbox({'Please make sure camera is set to 3.750GB storage, then click ok to continue', ...
+%         '(Required buffer length 20 seconds)'}));
     
     %% Loop Start
     for j = 1 : 6

@@ -139,7 +139,13 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
             % because the DAQ starts too early. Note that this is still
             % less than 1000, so no data will be lost. - nxz157, 7/6/2023
 
-            funcS = zeros(1, 1000); % Set the stepper m-sequence to all zeros so it doesn't move
+%             funcS = zeros(1, 1000); % Set the stepper m-sequence to all zeros so it doesn't move
+            funcS = funcV;
+            % Coder's note: we give a stepper sequence not because we want
+            % the stepper to move, but to provide feedback. We will set the
+            % sequence gain to be 0 to ensure that the stepper doesn't
+            % actually move. - nxz157, 2/5/2024
+
             pattern = STRIPED_PATTERN; % Load stripes pattern
         case 'StepperOnlyStripes'
             if conserved

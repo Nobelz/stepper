@@ -46,19 +46,6 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
         rate = 50;
     end
     
-    rigUse = [1 1]; % Stores whether the arena and/or stepper are used
-    if all(~funcV)
-        rigUse(1) = 0;
-    end
-    
-    if all(~funcS)
-        rigUse(2) = 0;
-    end
-    
-    if ~rigUse
-        error('No pattern given for either arena or stepper.');
-    end
-    
     % Prepend 30 zeros to ensure DAQ doesn't miss start
     funcV = [zeros(1, 30) funcV];
     funcS = [zeros(1, 30) funcS];
@@ -216,10 +203,14 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     fprintf('.done\n');
 
     fprintf('\tSetting stepper gain...\n');
-    gain = max(abs(funcS)); % The max should be 1, 2, etc., which specifies the gain
-    Stepper_com(stepper, 'set_sequence_gain', gain);
 
-    %         if rigUse(1) % Only 25Hz and 50Hz available with arena
+    if ~strcmp(condition, 'ArenaOnly')
+        gain = max(abs(funcS)); % The max should be 1, 2, etc., which specifies the gain
+        Stepper_com(stepper, 'set_sequence_gain', gain);
+    else
+        Stepper_com(stepper, 'set_sequence_gain', 0); % Make sure stepper sequence doesn't move
+    end
+
     fprintf('\tParsing stepper trigger m-sequence...\n');
     stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
 
@@ -240,10 +231,10 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     % stepper for each step. - nxz157, 7/3/2023
 
     fprintf('\tSending sequence length...\n');
-    if rigUse(2)
-        finalIndex = find(abs(funcS) > 0, 1, 'last') + 1;
+    if strcmp(condition, 'ArenaOnly')
+        finalIndex = find(abs(funcV) > 0, 1, 'last') + 1;
     else
-        finalIndex = 1000;
+        finalIndex = find(abs(funcS) > 0, 1, 'last') + 1;
     end
     Stepper_com(stepper, 'send_sequence_length', finalIndex);
 
@@ -260,28 +251,7 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 
     fprintf('\tSending stepper function...\n');
     Stepper_com(stepper, 'send_arena_sequence', funcS);
-
     pause(1);
-
-    %             fprintf('\tSetting arena mode...\n');
-    %             Panel_com('set_mode', [5 5]);
-    %
-    %             % Coder's note: the above is necessary as otherwise, the arena
-    %             % will replay the last stored sequence. We want the sequence to
-    %             % do something, so if we have it go to a debug mode, that would
-    %             % suffice. - nxz157, 7/13/2023
-    %
-    %             fprintf('\tSetting trigger mode...\n')
-    %             Stepper_com(stepper, 'set_trig_mode', 'start_on_trig');
-    %
-    %             fprintf('\tSetting sequence rate...\n')
-    %             Stepper_com(stepper, 'set_sequence_rate', rate);
-    %
-    %             fprintf('\tSending stepper function...\n');
-    %             Stepper_com(stepper, 'send_sequence', funcS);
-    %
-    %             Panel_com('set_trigger_rate', 1);
-
     fprintf('Done setting up Stepper.\n');
     
     %% Final Preparations
@@ -344,73 +314,64 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     %% Verification of Synchronization
     fprintf('Verifying data...\n');
 
-    if ~strcmp(condition, 'ArenaOnly')
-           
-        stepper = data.('Dev1_ai6');
-        arena = data.('Dev1_ai4');
-        timeStepper = find(stepper > 3, 1); % Find first location of stepper start
-        timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
-    
-        if abs(timeStepper - timeArena) >= 10
-            f = figure;
-            hold on;
-            plot(arena);
-            plot(stepper);
-            title('Start Verification');
-            ylim([0 5]);
-            xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
-    
-            startBtn = questdlg('There are concerns with synchronization between the arena and stepper start times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
-            close(f);
-        else
-            startBtn = 'Yes';
-        end
-    
+    stepperStart = data.('Dev1_ai14');
+    arena = data.('Dev1_ai4');
+    timeStepper = find(stepperStart > 2.5, 1); % Find first location of stepper start
+    timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
+
+    f = figure;
+    hold on;
+    plot(arena);
+    plot(stepperStart);
+    title('Start Verification');
+    ylim([0 5]);
+    xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+
+    startBtn = questdlg('If start synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
+    close(f);
+
+    if strcmp(startBtn, 'Yes')
         fprintf('\tVerifying end times...\n');
-        stopSignal = data.('Dev1_ai14');
-        timeStop = find(diff(stopSignal) < -3, 1) + 10;
-    
-        arenaMod = arena(1 : timeStop); % Truncate end arena changes off
-    
-        timeStepper = find(abs(diff(stepper)) > 3, 1, 'last') + 1; % Find last location of stepper change
-        timeArena = find(abs(diff(arenaMod)) > 0.03, 1, 'last') + 1; % last first location of arena change
-    
-        if abs(timeStepper - timeArena) >= 10 || strcmp(startBtn, 'Yes')
-            f = figure;
-            hold on;
-            plot(arena);
-            plot(stepper);
-            title('End Verification');
-            ylim([0 5]);
-            xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
-    
-            endBtn = questdlg('There are concerns with synchronization between the arena and stepper end times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'End Synchronization Good?', 'Yes', 'No', 'No');
-            close(f);
-        else
-            endBtn = 'Yes';
-        end
+        timeStepper = find(diff(stepperStart) < -2.5, 1, 'last') + 1; % Find stepper end
+        arena = arena(1 : timeStepper + 500); % Cut off weird restart at end
+        timeArena = find(abs(diff(arena)) > 0.03, 1, 'last') + 1; % Find last arena change
+        stepper = data.('Dev1_ai6');
+
+        f = figure;
+        hold on;
+        plot(arena);
+        plot(stepperStart);
+        plot(stepper)
+        title('End Verification');
+        ylim([0 5]);
+        xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+
+        endBtn = questdlg('If end synchronization looks good, please select Yes. The default value is No.', 'End Synchronization Good?', 'Yes', 'No', 'No');
+        close(f);
     else
-        stepperStart = data.('Dev1_ai14');
-        arena = data.('Dev1_ai4');
-        timeStepper = find(stepperStart > 3, 1); % Find first location of stepper start
-        timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
-    
-        if abs(timeStepper - timeArena) >= 10
-            f = figure;
-            hold on;
-            plot(arena);
-            plot(stepperStart);
-            title('Start Verification');
-            ylim([0 5]);
-            xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
-    
-            startBtn = questdlg('There are concerns with synchronization between the arena and stepper start times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
-            close(f);
-        else
-            startBtn = 'Yes';
-        end
         endBtn = 'Yes';
     end
+% else
+%     stepperStart = data.('Dev1_ai14');
+%     arena = data.('Dev1_ai4');
+%     timeStepper = find(stepperStart > 3, 1); % Find first location of stepper start
+%     timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
+% 
+%     if abs(timeStepper - timeArena) >= 10
+%         f = figure;
+%         hold on;
+%         plot(arena);
+%         plot(stepperStart);
+%         title('Start Verification');
+%         ylim([0 5]);
+%         xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+% 
+%         startBtn = questdlg('There are concerns with synchronization between the arena and stepper start times; manual intervention necessary. If synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
+%         close(f);
+%     else
+%         startBtn = 'Yes';
+%     end
+%     endBtn = 'Yes';
 
     fprintf('\tVerifying fly flight...\n');
 
