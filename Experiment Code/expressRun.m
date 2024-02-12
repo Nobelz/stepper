@@ -1,9 +1,10 @@
-function expressRun(flyNum)
+function expressRun(flyNum, haltere)
 % expressRun.m
 % Runs all relevant trials for the fly.
 %
 % Inputs:
 %   - flyNum: the number of the fly
+%   - haltere: haltere status of the fly: 1 if intact, 0 if haltereless
 %
 % Author: Nobel Zhou
 % Date: 11 July 2023
@@ -18,6 +19,10 @@ function expressRun(flyNum)
     TREATMENT = 'PCF';
     DEFAULT_RATE = 50;
     
+    if nargin < 2
+        haltere = 1; % Default is haltere-intact
+    end
+
     expOrder = randperm(6); % Randomize experiment treatment
 
 %     %% Test Linearity
@@ -40,83 +45,83 @@ function expressRun(flyNum)
             case 1
                 %% Visual Only
                 fprintf('Running arena-only conserved trial...\n');
-                while experimentHandler(flyNum, 'con', TREATMENT, 1, 'ArenaOnly', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                while experimentHandler(flyNum, 'con', TREATMENT, haltere, 'ArenaOnly', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
                 
                 for i = 1 : 3
                     clc;
                     fprintf(['Running arena-only trial ' num2str(i) ' of 3...\n']);
-                    while experimentHandler(flyNum, i, TREATMENT, 1, 'ArenaOnly', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                    while experimentHandler(flyNum, i, TREATMENT, haltere, 'ArenaOnly', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                     end
                 end
             
             case 2
                 %% Stepper Only Stripes
                 fprintf('Running stepper-only stripes conserved trial...\n');
-                while experimentHandler(flyNum, 'con', TREATMENT, 1, 'StepperOnlyStripes', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                while experimentHandler(flyNum, 'con', TREATMENT, haltere, 'StepperOnlyStripes', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
                 
                 for i = 1 : 3
                     clc;
                     fprintf(['Running stepper-only stripes trial ' num2str(i) ' of 3...\n']);
-                    while experimentHandler(flyNum, i, TREATMENT, 1, 'StepperOnlyStripes', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                    while experimentHandler(flyNum, i, TREATMENT, haltere, 'StepperOnlyStripes', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                     end
                 end
             
             case 3
                 %% Stepper Only All On
                 fprintf('Running stepper-only all on conserved trial...\n');
-                while experimentHandler(flyNum, 'con', TREATMENT, 1, 'StepperOnlyAllOn', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                while experimentHandler(flyNum, 'con', TREATMENT, haltere, 'StepperOnlyAllOn', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
                 
                 for i = 1 : 3
                     clc;
                     fprintf(['Running stepper-only all on trial ' num2str(i) ' of 3...\n']);
-                    while experimentHandler(flyNum, i, TREATMENT, 1, 'StepperOnlyAllOn', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                    while experimentHandler(flyNum, i, TREATMENT, haltere, 'StepperOnlyAllOn', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                     end
                 end
 
             case 4
                 %% Bimodal Coherent
                 fprintf('Running bimodal coherent conserved trial...\n');
-                while experimentHandler(flyNum, 'con', TREATMENT, 1, 'BimodalCoherent', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                while experimentHandler(flyNum, 'con', TREATMENT, haltere, 'BimodalCoherent', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
                 
                 for i = 1 : 3
                     clc;
                     fprintf(['Running bimodal coherent trial ' num2str(i) ' of 3...\n']);
-                    while experimentHandler(flyNum, i, TREATMENT, 1, 'BimodalCoherent', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                    while experimentHandler(flyNum, i, TREATMENT, haltere, 'BimodalCoherent', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                     end
                 end
         
             case 5
                 %% Bimodal Opposing
                 fprintf('Running bimodal opposing conserved trial...\n');
-                while experimentHandler(flyNum, 'con', TREATMENT, 1, 'BimodalOpposing', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                while experimentHandler(flyNum, 'con', TREATMENT, haltere, 'BimodalOpposing', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
                 
                 for i = 1 : 3
                     clc;
                     fprintf(['Running bimodal opposing trial ' num2str(i) ' of 3...\n']);
-                    while experimentHandler(flyNum, i, TREATMENT, 1, 'BimodalOpposing', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                    while experimentHandler(flyNum, i, TREATMENT, haltere, 'BimodalOpposing', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                     end
                 end
         
             case 6
                 %% Bimodal Random
                 fprintf('Running bimodal random conserved trial 1 of 2...\n');
-                while experimentHandler(flyNum, 'con1', TREATMENT, 1, 'BimodalRandom', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                while experimentHandler(flyNum, 'con1', TREATMENT, haltere, 'BimodalRandom', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
             
                 clc;
                 fprintf('Running bimodal random conserved trial 2 of 2...\n');
-                while experimentHandler(flyNum, 'con2', TREATMENT, 1, 'BimodalRandom', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                while experimentHandler(flyNum, 'con2', TREATMENT, haltere, 'BimodalRandom', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                 end
                 
                 for i = 1 : 3
                     clc;
                     fprintf(['Running bimodal random trial ' num2str(i) ' of 3...\n']);
-                    while experimentHandler(flyNum, i, TREATMENT, 1, 'BimodalRandom', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+                    while experimentHandler(flyNum, i, TREATMENT, haltere, 'BimodalRandom', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
                     end
                 end
         end
