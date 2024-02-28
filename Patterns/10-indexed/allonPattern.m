@@ -88,8 +88,8 @@ tic
 %     end
 % end
 
-% Make 97-100 all off
-for j = 7 : 10
+% Make last 4 all off
+for j = 1 : 4
     pattern.Pats(:, :, 10, j) = 0;
 end
 

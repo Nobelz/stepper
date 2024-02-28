@@ -69,10 +69,18 @@ j = 1;
 k = 1;
 for i=1:96
     pattern.Pats(:, :, j, k) = pattern.Pats(:, :, 1, 1);
-    k = k + 1;
-    if k > 10
-        k = 1;
-        j = j + 1;
+    if mod(j, 2) == 1
+        k = k + 1;
+        if k > 10
+            j = j + 1;
+            k = 10;
+        end
+    else
+        k = k - 1;
+        if k < 1
+            j = j + 1;
+            k = 1;
+        end
     end
 end
 % end

@@ -70,14 +70,29 @@ for i=2:96
     patternTemp(:, :, i) = back_pat_tmp;
 end
 
+% Coder's note: the paradigm is as follows:
+% Each 96 position is mapped into 2 digits: X and Y. The order is
+% 1 1, 1 2, ..., 1 10, 2 10, 2 9, ..., 2 1, 3 1, 3 2, ...
+% The reason it is like this is to avoid jitters and slips, as this allows
+% for only one channel to be switched at a time between contiguous indices.
+% - nxz157, 2/28/2024
+
 j = 1;
 k = 1;
 for i=1:96
     pattern.Pats(:, :, j, k) = patternTemp(:, :, i);
-    k = k+1;
-    if k > 10
-        j = j + 1;
-        k = 1;
+    if mod(j, 2) == 1
+        k = k + 1;
+        if k > 10
+            j = j + 1;
+            k = 10;
+        end
+    else
+        k = k - 1;
+        if k < 1
+            j = j + 1;
+            k = 1;
+        end
     end
 end
 
