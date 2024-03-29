@@ -1,20 +1,24 @@
-  function mappingX = getMapping
+function [mappingX, mappingY] = getMapping
 % getMapping.m
 % Gets the specific arena voltages for each index.
 % Returns a 100-length row vector representing the voltage at each index
 %   
 % Author: Nobel Zhou
-% Date: 14 June 2023
-% Version: 0.1
+% Date: 28 February 2024
+% Version: 0.2
 %
 % VERSION CHANGELOG:
 % - v0.1 (6/14/2023): Initial commit
+% - v0.2 (2/28/2024): Change for 10-indexed patterns
 
     fprintf('Getting Mapping...\n');
     %% Get Arena Voltages
-    load('voltages.mat', 'voltages');
-    voltages = getArenaVoltages();
-    save('voltages', 'voltages');
+    if isfile('voltages.mat')
+        load('voltages.mat', 'voltages');
+    else
+        voltages = getArenaVoltages();
+        save('voltages', 'voltages');
+    end
     
     %% Setup DAQ and Panel Controller
     % Setup Panel Controller
@@ -66,6 +70,8 @@
         mappingY = linspace(0, 1000 / 1023 * 5, 10);
     end
 
+    fprintf('\tMapping Y Frames...\n');
+
     for j = 1 : 10
         voltageCompliant = 0;
         fprintf(['\t\tY: Mapping Frame ' num2str(j) ' of 10...\n']);
@@ -91,6 +97,9 @@
             end
         end
     end
+    
+    fprintf('\tY Frame Mapping Complete.\n');
+    fprintf('\tMapping X Frames...\n');
 
     for i = 1 : 10
         voltageCompliant = 0;
@@ -117,9 +126,11 @@
             end
         end
     end
-
+    
+    fprintf('\tX Frame Mapping Complete.\n');
     fprintf('\tSaving mapping...\n');
     save('mapping', 'mappingX', 'mappingY');
     fprintf('Mapping done.\n');
     
+    close all
 end

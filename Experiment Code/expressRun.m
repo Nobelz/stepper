@@ -4,7 +4,8 @@ function expressRun(flyNum, haltere)
 %
 % Inputs:
 %   - flyNum: the number of the fly
-%   - haltere: haltere status of the fly: 1 if intact, 0 if haltereless
+%   - haltere: haltere status of the fly: 1 if intact, 0 if haltereless, -1
+%       if dead
 %
 % Author: Nobel Zhou
 % Date: 11 July 2023

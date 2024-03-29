@@ -223,29 +223,37 @@ void beginArena(int len, int seqLength, byte gain) {
   digitalWrite(4, LOW);  // Set output to be low to begin
   digitalWrite(3, LOW);  // Set output to be low to begin
 
-  int lastState = analogRead(A1);
-  int currentState = analogRead(A1);
+  int lastState = 0;
+  int currentState = 0;
   int count = 0;
   long lastTime = millis();
-  bool risingEdge = true; // Stores whether we are looking for rising edge or falling edge
+  // bool risingEdge = true; // Stores whether we are looking for rising edge or falling edge
 
   // Start iterating through command bytes
   for (int i = 0; i < len; i++) {
     curbyte = buff[i];  // Assign next byte in buffer to curbyte
     // Go through bits in current byte 2 at a time
     for (int j = 0; j < 7; j = j + 2) {
-      while ((risingEdge && lastState - currentState > -400) || (!risingEdge && lastState - currentState < 400)) {
+      // while ((risingEdge && lastState - currentState > -400) || (!risingEdge && lastState - currentState < 400)) {
+      //   lastState = currentState;
+      //   currentState = analogRead(A1);
+      // }
+
+      lastState = analogRead(A1);
+      currentState = analogRead(A1);
+
+      while (currentState - lastState < 300) {
         lastState = currentState;
         currentState = analogRead(A1);
       }
 
-      currentState = lastState;
-      risingEdge = !risingEdge;
+      // currentState = lastState;
+      // risingEdge = !risingEdge;
 
       count++;
-      if (count == 31) {
+      if (count == 52) {
         digitalWrite(3, HIGH);  // Notify arena/controller that sequence has started
-      } else if (count > seqLength) {
+      } else if (count >= seqLength) {
         digitalWrite(3, LOW);
         break;
       }
@@ -263,7 +271,7 @@ void beginArena(int len, int seqLength, byte gain) {
       // Other command bits [00 (0 in decimal) and 11 (3 in decimal)] do nothing
     }
 
-    if (count > seqLength) {
+    if (count >= seqLength) {
       break;
     }
   }

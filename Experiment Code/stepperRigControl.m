@@ -1,4 +1,4 @@
-function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duration, rate, condition)
+function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duration, condition, rate, setup)
 % stepperRigControl.m
 % Rewrite for controlling the stepper and arena rig.
 %
@@ -8,11 +8,13 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 %       empty array of 0's. 
 %   - funcS: the stepper pattern, limit 1000; in the event that no visual 
 %       function is needed, provide an empty array of 0's.
-%   - pattern: the arena pattern, usually 1 (stripes) or 2 (all on)
+%   - pattern: the arena pattern, usually 1 (stripes moving), 2 (all on),
+%       or 3 (stripes stationary)
 %   - duration: the length of the experiment
 %   - rate: the rate of the stepper, if using stepper only. The default is
 %       50Hz
 %   - condition: the condition of the trial
+%   - setup: whether remapping of voltages should commence (default no/0)
 %
 % Outputs:
 %   - data: the actual data of the DAQ during the trial
@@ -38,23 +40,38 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     close all;
 
     %% Check and Fill Arguments
-    if nargin < 4
-        error('Not enough input arguments.');
-    end
-    
     if nargin < 5
+        error('Not enough input arguments.');
+    end 
+    
+    if nargin < 6
         rate = 50;
     end
+
+    if nargin < 7
+        setup = 0;
+    end
     
-    % Prepend 30 zeros to ensure DAQ doesn't miss start
-    funcV = [zeros(1, 30) funcV];
-    funcS = [zeros(1, 30) funcS];
-    funcV = funcV(1 : 1000);
+%     % Prepend 30 zeros to ensure DAQ doesn't miss start
+%     funcV = [zeros(1, 30) funcV];
+    funcS = [zeros(1, rate + 1) funcS]; % Prepend number of zeros for 1s delay
+% %     funcV = funcV(1 : 1000);
     funcS = funcS(1 : 1000);
-    
+
     %% Define Constants
     DAQ_RATE = 10000;
     STEPPER_PORT = 'COM3';
+
+    % Provide mapping from positions (1-96) to Arena X/Y values
+    X_MAP = repelem(1 : 10, 10);
+    Y_MAP = repmat([1 : 10, 10 : -1 : 1], 1, 5);
+    
+    %% Get Voltages (if necessary)
+    if setup || ~isfile('mapping.mat')
+        [mappingX, mappingY] = getMapping();
+    else
+        load('mapping.mat', 'mappingX', 'mappingY');
+    end
 
     %% Setup DAQ
     fprintf('Setting up DAQ...');
@@ -67,23 +84,33 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     fprintf('.');
  
     % Setup input channels
-    % Add arena control trigger channel
-    ch = addinput(d, 'dev1', 'ai1', 'Voltage');
+%     % Add arena control trigger channel
+%     ch = addinput(d, 'dev1', 'ai1', 'Voltage');
+%     ch.TerminalConfig = 'SingleEnded';
+%     fprintf('.');
+%     
+%     % Add fastec camera frame sync channel
+%     ch = addinput(d, 'dev1', 'ai2', 'Voltage');
+%     ch.TerminalConfig = 'SingleEnded';
+%     fprintf('.');
+
+    % Add arena (x) output channel
+    ch = addinput(d, 'dev1', 'ai7', 'Voltage');
+    ch.TerminalConfig = 'SingleEnded';
+    fprintf('.');
+
+    % Add arena (x) input channel
+    ch = addinput(d, 'dev1', 'ai10', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
-    % Add fastec camera frame sync channel
-    ch = addinput(d, 'dev1', 'ai2', 'Voltage');
+    % Add arena (y) output channel
+    ch = addinput(d, 'dev1', 'ai11', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
-    % Add stepper trigger (x) channel
+    % Add arena (y) input channel
     ch = addinput(d, 'dev1', 'ai3', 'Voltage');
-    ch.TerminalConfig = 'SingleEnded';
-    fprintf('.');
-    
-    % Add arena (y) channel
-    ch = addinput(d, 'dev1', 'ai4', 'Voltage');
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
     
@@ -97,10 +124,42 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     ch.TerminalConfig = 'SingleEnded';
     fprintf('.');
 
+    % Add trigger in channel
+    ch = addinput(d, 'dev1', 'ai13', 'Voltage');
+    ch.TerminalConfig = 'SingleEnded';
+    fprintf('.');
+    
     % Add trigger connection from arena controller
-%     trigger = addtrigger(d, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
-%     trigger.Condition = 'RisingEdge';
+    trigger = addtrigger(d, 'Digital', 'StartTrigger', 'External', 'dev1/PFI1');
+    trigger.Condition = 'RisingEdge';
+    fprintf('.');
+
+    % Setup output channels
+    % Add arena X output
+    addoutput(d, 'dev1', 'ao0', 'Voltage');
+    fprintf('.');
+
+    % Add arena Y output
+    addoutput(d, 'dev1', 'ao1', 'Voltage');
+    fprintf('.');
+
+    % Setup triggering DAQ
+    dTrig = daq('ni');
+    fprintf('.');
+    
+    dTrig.Rate = DAQ_RATE;
+    fprintf('.');
+
+    % Add pulse trigger
+    ch = addoutput(dTrig, 'dev1', 'ctr0', 'PulseGeneration');
+    ch.Frequency = rate;
+    ch.DutyCycle = 0.5;
     fprintf('.done\n');
+
+%     % Add trigger in channel
+%     ch = addinput(dTrig, 'dev1', 'ai9', 'Voltage');
+%     ch.TerminalConfig = 'SingleEnded';
+%     fprintf('.done\n');
 
     %% Setup LED Arena
     fprintf('Setting up LED Arena');
@@ -111,30 +170,30 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     Panel_com('stop_w_trig'); % Stop trigger
     fprintf('.done\n');
     
-    fprintf('\tSetting trigger rate...\n');
-    Panel_com('set_trigger_rate', 1);
-
-    % Ensure trigger starts on low first
-    fprintf('\tChecking trigger status...\n');
-    if read(d).('Dev1_ai1') > 2
-        loopTime = tic;
-        checks = 1;
-        while (read(d).('Dev1_ai1') > 2)
-            fprintf('\t\tTrigger status check failed. Attempting to lower trigger voltage...\n');
-            Panel_com('start_w_trig'); % Start trigger to advance so it's low again
-
-            while (read(d).('Dev1_ai1') > 2) % Wait until the trigger is no longer high
-                if toc(loopTime) > 10 % If 10 seconds elapsed, there is something wrong and we should stop trying
-                    error('\tCould not reset arena trigger before trial within 10 seconds. Exiting...\n');
-                end
-                pause(0.01);
-            end
-            Panel_com('stop_w_trig'); % Stop trigger and check if low
-            fprintf(['\t\tChecking trigger status again (Iteration ' num2str(checks) ')...\n'])
-            checks = checks + 1;
-        end
-    end
-    fprintf('\t\tTrigger status check complete.\n');
+%     fprintf('\tSetting trigger rate...\n');
+%     Panel_com('set_trigger_rate', 1);
+% 
+%     % Ensure trigger starts on low first
+%     fprintf('\tChecking trigger status...\n');
+%     if read(d).('Dev1_ai1') > 2
+%         loopTime = tic;
+%         checks = 1;
+%         while (read(d).('Dev1_ai1') > 2)
+%             fprintf('\t\tTrigger status check failed. Attempting to lower trigger voltage...\n');
+%             Panel_com('start_w_trig'); % Start trigger to advance so it's low again
+% 
+%             while (read(d).('Dev1_ai1') > 2) % Wait until the trigger is no longer high
+%                 if toc(loopTime) > 10 % If 10 seconds elapsed, there is something wrong and we should stop trying
+%                     error('\tCould not reset arena trigger before trial within 10 seconds. Exiting...\n');
+%                 end
+%                 pause(0.01);
+%             end
+%             Panel_com('stop_w_trig'); % Stop trigger and check if low
+%             fprintf(['\t\tChecking trigger status again (Iteration ' num2str(checks) ')...\n'])
+%             checks = checks + 1;
+%         end
+%     end
+%     fprintf('\t\tTrigger status check complete.\n');
 
     % Coder's note: the above loop ensures that the trigger does not skip a
     % frame. In certain cases, the trigger can be stopped while it is high,
@@ -163,31 +222,82 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     % carried over from the previous stepper rig control. If it aint broke,
     % don't fix it - nxz157, 6/19/2023
 
-    fprintf('\tSetting mode to function mode.');
-    Panel_com('set_mode', [4 4]);
+%     fprintf('\tSetting mode to function mode.');
+%     Panel_com('set_mode', [4 4]);
+
+    fprintf('\tSetting mode to position control mode.');
+    Panel_com('set_mode', [3 3]);
+
+    % Coder's note: as of March 2024, we are now using position control
+    % mode because function mode SUCKS - nxz157, 2/28/2024
+
     fprintf('.');
-    Panel_com('send_gain_bias', [0 0 0 0]);
+    Panel_com('send_gain_bias', [100 0 100 0]);
     fprintf('.done\n');
 
     fprintf('\tParsing arena m-sequence...\n');
+
     arenaMSeq = cumsum(funcV);
+    arenaMSeq = arenaMSeq + 48; % Put in middle of pattern
+    
+    logXSeq = X_MAP(arenaMSeq); % Convert into x position for arena
+    logYSeq = Y_MAP(arenaMSeq);
 
-    fprintf('\tSending arena function.')
+    voltXSeq = mappingX(logXSeq); % Convert arena X into voltages
+    voltYSeq = mappingY(logYSeq);
 
-    for i = 0 : 19
-        j = 1 + i * 50;
-        k = j + 49;
+%     fprintf('\tSending arena function.')
+% 
+%     for i = 0 : 19
+%         j = 1 + i * 50;
+%         k = j + 49;
+% 
+%         Panel_com('send_function', [2 i arenaMSeq(j : k)]); % 2 for Y
+%         fprintf('.');
+%         pause(0.1);
+%     end
+%     fprintf('.done\n');
 
-        Panel_com('send_function', [2 i arenaMSeq(j : k)]); % 2 for Y
-        fprintf('.');
-        pause(0.1);
-    end
-    fprintf('.done\n');
-
-    fprintf('\tSetting initial position...\n');
-    Panel_com('set_position', [1 48]); % Write first position
+%     fprintf('\tSetting initial position...\n');
+%     Panel_com('set_position', [5 8]); % Write first position
+    fprintf('\tStarting arena...\n');
+    Panel_com('start');
 
     fprintf('Done setting up LED Arena.\n');
+
+    %% Prepare DAQ
+    fprintf('Adding output data into DAQ...\n');
+    
+    % Create DAQ input for arena
+    daqExpData = zeros(DAQ_RATE * duration, 2);
+
+    fprintf('\tSampling rate...\n');
+    % Determine indices of change, based on frequency
+    lastIdx = 1000 / rate * DAQ_RATE; % Find last index
+    indices = round(linspace(0, lastIdx, 1001)) + 1; % Find indices of change, starting with 1
+    indices = indices(1 : 1000); % Disregard last index, as this is when everything finishes and we don't care about the finish point
+    
+    indices = indices + DAQ_RATE; % Add 1 second delay
+
+    % Append beginning voltage
+    daqExpData(1 : indices(1), 1) = voltXSeq(1); 
+    daqExpData(1 : indices(1), 2) = voltYSeq(1);
+
+    % Loop through each element of sequence
+    lastIdx = indices(1);
+    for i = 1 : 999
+        daqExpData(lastIdx : indices(i + 1) - 1, 1) = voltXSeq(i);
+        daqExpData(lastIdx : indices(i + 1) - 1, 2) = voltYSeq(i);
+
+        lastIdx = indices(i + 1);
+    end
+
+    % Append last voltage all the way to end of data collection
+    daqExpData(indices(1000) : end, 1) = voltXSeq(end);
+    daqExpData(indices(1000) : end, 2) = voltYSeq(end);
+
+    fprintf('\tSetting initial position...\n');
+    write(d, daqExpData(1, :)); % Write first voltage
 
     %% Setup Stepper
     fprintf('Setting up Stepper...\n');
@@ -211,8 +321,10 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
         Stepper_com(stepper, 'set_sequence_gain', 0); % Make sure stepper sequence doesn't move
     end
 
-    fprintf('\tParsing stepper trigger m-sequence...\n');
-    stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
+%     fprintf('\tParsing stepper trigger m-sequence...\n');
+%     stepperMSeq = ((-1) .^ (0 : 999) + 1) * 85 / 2; % Create alternating vector of 85 and 0
+    % Coder's note: the above is no longer necessary, now that we have a
+    % 50Hz trigger on the DAQ. - nxz157, 3/1/2024
 
     % % Coder's note: the sequence starts with 96, as we initially
     % % set the position to be 1, and we need a change to occur to
@@ -232,22 +344,22 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 
     fprintf('\tSending sequence length...\n');
     if strcmp(condition, 'ArenaOnly')
-        finalIndex = find(abs(funcV) > 0, 1, 'last') + 1;
+        finalIndex = find(abs(funcV) > 0, 1, 'last');
     else
-        finalIndex = find(abs(funcS) > 0, 1, 'last') + 1;
+        finalIndex = find(abs(funcS) > 0, 1, 'last');
     end
     Stepper_com(stepper, 'send_sequence_length', finalIndex);
 
-    fprintf('\tSending stepper trigger function.')
-    for i = 0 : 19
-        j = 1 + i * 50;
-        k = j + 49;
-
-        Panel_com('send_function', [1 i stepperMSeq(j : k)]); % 1 for X
-        fprintf('.');
-        pause(0.1);
-    end
-    fprintf('.done\n');
+%     fprintf('\tSending stepper trigger function.')
+%     for i = 0 : 19
+%         j = 1 + i * 50;
+%         k = j + 49;
+% 
+%         Panel_com('send_function', [1 i stepperMSeq(j : k)]); % 1 for X
+%         fprintf('.');
+%         pause(0.1);
+%     end
+%     fprintf('.done\n');
 
     fprintf('\tSending stepper function...\n');
     Stepper_com(stepper, 'send_arena_sequence', funcS);
@@ -257,25 +369,33 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     %% Final Preparations
     fprintf('Performing final preparations...\n');
 
+    fprintf('\tPreloading DAQ data...\n');
+    preload(d, daqExpData);
+
     fprintf('\tWaiting for user start signal...\n');
     uiwait(msgbox({'Please arm camera and click ok to continue', ...
         ['(Required buffer length ' num2str(duration) ' seconds)']}, condition));
     
     fprintf('Starting execution...\n');
     fprintf('\tStarting DAQ operation...\n');
-    start(d, 'Duration', seconds(duration + 2)); % Start DAQ collection/writing and wait for trigger
-    pause(2);
+    start(d);
+    start(dTrig, 'Duration', seconds(duration + 1)); % Start trig and wait for DAQ
 
-    % Coder's note: I added a 2 second pause because the DAQ doesn't seem
+    % Coder's note: I added a 1 second pause because the DAQ doesn't seem
     % to start very quickly and it was cutting off some data. - nxz157,
     % 1/26/2024
 
-    fprintf('\tWaiting for trigger...\n');
-    Panel_com('start_w_trig'); % Send trigger to camera and DAQ
+%     fprintf('\tWaiting for trigger...\n');
+%     Panel_com('start_w_trig'); % Send trigger to camera and DAQ
 
     time = datetime('now'); % Record time
 
     fprintf('\tTrigger received. Waiting for completion...\n');
+
+    % Wait for both DAQ's to finish
+    while dTrig.Running
+        drawnow;
+    end
 
     while d.Running
         drawnow;
@@ -306,51 +426,51 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
     % as data has already been done collecting when this happens. - nxz157,
     % 6/30/2023
     fprintf('\tResetting Stepper...\n');
-    Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
+%     Stepper_com(stepper, 'reset'); % Reset stepper to exit voltage loop
 
     fprintf('\tClearing DAQ...\n');
     clear d % Delete DAQ
 
     %% Verification of Synchronization
-    fprintf('Verifying data...\n');
-
-    stepperStart = data.('Dev1_ai14');
-    arena = data.('Dev1_ai4');
-    timeStepper = find(stepperStart > 2.5, 1); % Find first location of stepper start
-    timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
-
-    f = figure;
-    hold on;
-    plot(arena);
-    plot(stepperStart);
-    title('Start Verification');
-    ylim([0 5]);
-    xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
-
-    startBtn = questdlg('If start synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
-    close(f);
-
-    if strcmp(startBtn, 'Yes')
-        fprintf('\tVerifying end times...\n');
-        timeStepper = find(diff(stepperStart) < -2.5, 1, 'last') + 1; % Find stepper end
-        arena = arena(1 : timeStepper + 500); % Cut off weird restart at end
-        timeArena = find(abs(diff(arena)) > 0.03, 1, 'last') + 1; % Find last arena change
-        stepper = data.('Dev1_ai6');
-
-        f = figure;
-        hold on;
-        plot(arena);
-        plot(stepperStart);
-        plot(stepper)
-        title('End Verification');
-        ylim([0 5]);
-        xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
-
-        endBtn = questdlg('If end synchronization looks good, please select Yes. The default value is No.', 'End Synchronization Good?', 'Yes', 'No', 'No');
-        close(f);
-    else
-        endBtn = 'Yes';
-    end
+%     fprintf('Verifying data...\n');
+% 
+%     stepperStart = data.('Dev1_ai14');
+%     arena = data.('Dev1_ai4');
+%     timeStepper = find(stepperStart > 2.5, 1); % Find first location of stepper start
+%     timeArena = find(abs(diff(arena)) > 0.03, 1) + 1; % Find first location of arena start
+% 
+%     f = figure;
+%     hold on;
+%     plot(arena);
+%     plot(stepperStart);
+%     title('Start Verification');
+%     ylim([0 5]);
+%     xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+% 
+%     startBtn = questdlg('If start synchronization looks good, please select Yes. The default value is No.', 'Start Synchronization Good?', 'Yes', 'No', 'No');
+%     close(f);
+% 
+%     if strcmp(startBtn, 'Yes')
+%         fprintf('\tVerifying end times...\n');
+%         timeStepper = find(diff(stepperStart) < -2.5, 1, 'last') + 1; % Find stepper end
+%         arena = arena(1 : timeStepper + 500); % Cut off weird restart at end
+%         timeArena = find(abs(diff(arena)) > 0.03, 1, 'last') + 1; % Find last arena change
+%         stepper = data.('Dev1_ai6');
+% 
+%         f = figure;
+%         hold on;
+%         plot(arena);
+%         plot(stepperStart);
+%         plot(stepper)
+%         title('End Verification');
+%         ylim([0 5]);
+%         xlim([min(timeStepper, timeArena) - 500, max(timeStepper, timeArena) + 500]);
+% 
+%         endBtn = questdlg('If end synchronization looks good, please select Yes. The default value is No.', 'End Synchronization Good?', 'Yes', 'No', 'No');
+%         close(f);
+%     else
+%         endBtn = 'Yes';
+%     end
 % else
 %     stepperStart = data.('Dev1_ai14');
 %     arena = data.('Dev1_ai4');
@@ -372,14 +492,13 @@ function [data, time, status] = stepperRigControl(funcV, funcS, pattern, duratio
 %         startBtn = 'Yes';
 %     end
 %     endBtn = 'Yes';
+    
+    % Coder's note: the above is no longer needed because we are using the
+    % DAQ and the DAQ is actually temporally consistent. - nxz157,
+    % 3/18/2024
 
     fprintf('\tVerifying fly flight...\n');
-
-    if strcmp(startBtn, 'Yes') && strcmp(endBtn, 'Yes')
-        btn = questdlg('If the fly did not stop flying, please select Yes. The default value is No.', 'Save This Trial?', 'Yes', 'No', 'No');
-    else
-        btn = 'No';
-    end
+    btn = questdlg('If the fly did not stop flying, please select Yes. The default value is No.', 'Save This Trial?', 'Yes', 'No', 'No');
 
     if strcmp(btn, 'Yes')
         status = 1;

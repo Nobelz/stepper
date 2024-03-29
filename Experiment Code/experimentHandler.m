@@ -7,7 +7,8 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
 %   - flyNum: the number of the fly to be analyzed
 %   - flyTrial: the trial of the fly, 'con' if conserved
 %   - treatment: the treatment of the fly. Usually, it is PCF
-%   - haltere: the haltere status of the fly. 1 if intact, 0 if haltereless
+%   - haltere: the haltere status of the fly. 1 if intact, 0 if
+%       haltereless, -1 if dead
 %   - condition: the condition of the fly (e.g. 'ArenaOnly')
 %   - doubled: whether the m-sequence should be doubled
 %   - delayed: whether the m-sequence should be delayed by 200 iterations
@@ -48,10 +49,6 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
     end
         
     if ~strcmp(condition, 'TestLinearity')
-        if arenaRate ~= 25 && arenaRate ~= 50
-            error('Arena rate must be 25Hz or 50Hz.');
-        end    
-
         if arenaRate ~= stepperRate
             warning('Stepper rate not same to arena rate. Setting stepper rate to be arena rate...');
             stepperRate = arenaRate;
@@ -244,13 +241,14 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
         [data, time, status] = testLinearity();
     else
         % Pass arguments to stepper rig control
-        [data, time, status] = stepperRigControl(funcV, funcS, pattern, DURATION, stepperRate, condition);
+
+        [data, time, status] = stepperRigControl(funcV, funcS, pattern, DURATION, condition, stepperRate);
     end
 
     if status == 1
         fprintf('Saving trial...\n');
 
-        haltereString = ['HL'; 'IN'];
+        haltereString = ['DE'; 'HL'; 'IN'];
         folderName = strcat(PATH_TO_FOLDER, string(time, 'yyyyMMdd_HHmmss'));
         mkdir(folderName);
         
@@ -261,7 +259,7 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
         exp.flyNum = flyNum;
         exp.flyTrial = flyTrial;
         exp.treatment = treatment;
-        exp.haltere = haltereString(haltere + 1, :);
+        exp.haltere = haltereString(haltere + 2, :);
         exp.condition = condition;
 
         if ~strcmp(condition, 'TestLinearity')
@@ -275,7 +273,7 @@ function repeat = experimentHandler(flyNum, flyTrial, treatment, haltere, condit
         if strcmp(condition, 'TestLinearity')
             fileName = [treatment num2str(flyNum) 'TestLinearity'];
         else
-            fileName = [treatment num2str(flyNum) 'T' num2str(flyTrial) condition];
+            fileName = [treatment num2str(flyNum) exp.haltere 'T' num2str(flyTrial) condition];
         end
         
         fileName = fullfile(folderName, fileName);
