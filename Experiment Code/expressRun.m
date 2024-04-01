@@ -24,6 +24,21 @@ function expressRun(flyNum, haltere)
         haltere = 1; % Default is haltere-intact
     end
 
+    if haltere < 0
+        % For dead flies, run 7 + 1 stepper only all on
+        fprintf('Running stepper-only all on conserved trial...\n');
+        while experimentHandler(flyNum, 'con', TREATMENT, haltere, 'StepperOnlyAllOn', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+        end
+
+        for i = 1 : 9
+            clc;
+            fprintf(['Running stepper-only all on trial ' num2str(i) ' of 3...\n']);
+            while experimentHandler(flyNum, i, TREATMENT, haltere, 'StepperOnlyAllOn', 0, 0, DEFAULT_RATE, DEFAULT_RATE)
+            end
+        end
+        return;
+    end
+
     expOrder = randperm(6); % Randomize experiment treatment
 
 %     %% Test Linearity
@@ -41,7 +56,7 @@ function expressRun(flyNum, haltere)
     %% Loop Start
     for j = 1 : 6
         clc;
-
+    
         switch expOrder(j)
             case 1
                 %% Visual Only
